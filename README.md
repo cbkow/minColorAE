@@ -58,13 +58,15 @@ panel to `~/Library/Preferences/Adobe/After Effects/26.5/Scripts/ScriptUI Panels
 
 ## The panel
 
-Nothing a frame renders depends on it. **Add Output** puts an adjustment layer
-with minColor Output at the top of the active comp (under a macOS Fix layer if
-there is one), once per comp, as one undo step. In an OCIO project pinned to
-the viewport shim, it keeps a copy of the shim in `minColor/` next to the `.aep`
-and points the pin there (AE stores that path absolutely). It never switches an
-Adobe-engine project to OCIO; there, add minColor macOS Fix by hand on a guide
-layer. The panel reads the project only when it gains focus or after a click.
+Manual and passive: it never reads or reports the project's colour settings
+(AE's scripting answers for those can be stale), and nothing a frame renders
+depends on it. **Add Output** puts an adjustment layer with minColor Output at the
+top of the active comp (under a macOS Fix layer if there is one), once per comp,
+as one undo step. **Pin Viewport Shim** writes the shim into `minColor/` next to
+the saved `.aep` and makes it the project's OCIO config, turning OCIO on (on an
+Adobe-engine project that changes how footage is interpreted); press it again
+after moving the project. In an Adobe-engine project, add minColor macOS Fix by
+hand on a guide layer instead.
 
 ## License
 

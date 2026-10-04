@@ -5,18 +5,17 @@
 // the project's sidecar folder; nothing a frame renders depends on it, and every
 // effect works the same without it.
 //
-// Passive: no timers, no idle work. It reads the project when it gains focus
-// (onActivate) and after its own buttons, and it changes the project only from a
-// button, one undo group per click.
+// 100% manual: it never reads or reports the project's colour settings. AE's
+// scripting answers for them (config name, working space) can be stale or wrong
+// (a silent fallback keeps the old label), and minColor does no colour
+// detection anyway. No timers, no idle work; it changes the project only from a
+// button and reports only what that click did.
 //
 // Sidecar: <project folder>/minColor/ holds the viewport shim (and, later, the
-// In/Out presets). In an OCIO project already pinned to a minColor viewport
-// shim, a button press re-points the pin at the sidecar copy when it points
-// anywhere else (a moved project, another machine). AE wants an absolute path
-// there, so that is the one path the panel keeps current; everything else in
-// the folder is found relative to the .aep. An Adobe-engine project is never
-// switched to OCIO: there the macOS Fix effect, added by hand on a guide layer,
-// does the shim's job.
+// In/Out presets). Pin Viewport Shim writes the shim there and makes it the
+// project's OCIO config; AE stores that path absolutely, so after moving the
+// project, press it again. For Adobe-engine projects the macOS Fix effect, added
+// by hand on a guide layer, does the shim's job instead.
 //
 // ExtendScript groups an unparenthesised nested ?: from the LEFT; always parenthesise.
 //
@@ -56,45 +55,33 @@
     if (!file.open("w")) return false;
     var ok = file.write(s); file.close(); return ok;
   }
-  function baseName(path) { return String(path).replace(/\\/g, "/").replace(/^.*\//, ""); }
 
-  // ---- project facts (read only) -------------------------------------------------
-  function sidecarFolder() {
-    var f = app.project.file;
-    return f ? new Folder(f.parent.fsName + "/minColor") : null;
-  }
-  function colourFacts() {
-    var p = app.project, cms = -1, cfg = "";
-    try { cms = p.colorManagementSystem; } catch (e) {}
-    try { cfg = p.ocioConfigurationFile || ""; } catch (e) {}
-    return { ocio: cms === 1, cms: cms, config: cfg, shimPinned: cms === 1 && baseName(cfg) === SHIM_NAME };
-  }
-
-  // ---- the sidecar's one job in step 1: keep the shim pin pointing at it ----------
-  /* Returns lines for the report. Only acts on a project that is OCIO and pinned to a
-     file named like the shim; writes the shim into minColor/ when it is missing there. */
-  function maintainShim() {
-    var c = colourFacts(), out = [];
-    if (!c.shimPinned) return out;
-    var dir = sidecarFolder();
-    if (!dir) { out.push("Viewport shim pinned; save the project to give it a minColor folder."); return out; }
-    if (!dir.exists && !dir.create()) { out.push("Could not create " + dir.fsName); return out; }
+  /* Pin Viewport Shim: write minColor/mincolor-viewport-shim.ocio next to the saved
+     .aep (only when missing: AE caches a parsed config per path for the session,
+     and the copy may have been edited), make it the project's OCIO config, and
+     turn the OCIO engine on. On an Adobe-engine project that switch changes how
+     footage is interpreted; the button's tip says so. */
+  function pinShim() {
+    var out = [], f = app.project.file;
+    if (!f) { out.push("Save the project first: the shim goes in a minColor folder next to it. Nothing changed."); return out; }
+    var dir = new Folder(f.parent.fsName + "/minColor");
+    if (!dir.exists && !dir.create()) { out.push("Could not create " + dir.fsName + ". Nothing changed."); return out; }
     var shim = new File(dir.fsName + "/" + SHIM_NAME);
     if (!shim.exists) {
-      if (!writeText(shim, SHIM_TEXT)) { out.push("Could not write " + shim.fsName); return out; }
+      if (!writeText(shim, SHIM_TEXT)) { out.push("Could not write " + shim.fsName + ". Nothing changed."); return out; }
       out.push("Wrote minColor/" + SHIM_NAME + ".");
     } else if (readText(shim) !== SHIM_TEXT) {
-      /* AE caches a parsed config per path for the session, and the user may have
-         edited theirs: report, never overwrite */
-      out.push("Note: minColor/" + SHIM_NAME + " differs from this panel's (" + VERSION + "); left as it is.");
+      out.push("minColor/" + SHIM_NAME + " differs from this panel's (" + VERSION + "); kept it. Delete it and press again for a fresh copy.");
+    } else {
+      out.push("minColor/" + SHIM_NAME + " is already there.");
     }
-    if (new File(c.config).fsName !== shim.fsName) {
-      try {
-        app.project.ocioConfigurationFile = shim.fsName;
-        out.push("Re-pinned the viewport shim to minColor/" + SHIM_NAME + " (was " + c.config + ").");
-      } catch (e) {
-        out.push("Could not re-pin the viewport shim: " + e.toString());
-      }
+    try {
+      app.project.ocioConfigurationFile = shim.fsName;
+      if (app.project.colorManagementSystem !== 1) app.project.colorManagementSystem = 1;
+      out.push("Set it as the project's OCIO config.");
+      out.push("Check Project Settings > Color: Working Color Space = minColor Output, and the viewer display for this machine.");
+    } catch (e) {
+      out.push("After Effects refused the config: " + e.toString());
     }
     return out;
   }
@@ -125,7 +112,7 @@
     if (existing.length) {
       out.push("\"" + comp.name + "\" already has minColor Output on layer " + existing[0].index +
                " (\"" + existing[0].name + "\"); nothing added.");
-      return out.concat(maintainShim());
+      return out;
     }
     var fixes = findLayers(comp, MN_MACFIX);
     app.beginUndoGroup("minColor: Add Output");
@@ -136,7 +123,6 @@
       if (fixes.length) l.moveAfter(fixes[fixes.length - 1]);   /* below the lowest Fix layer */
       out.push("Added minColor Output to \"" + comp.name + "\" on layer " + l.index +
                (fixes.length ? ", under the macOS Fix layer." : ", at the top."));
-      out = out.concat(maintainShim());
     } catch (e) {
       out.push("Add Output failed: " + e.toString());
     }
@@ -186,46 +172,27 @@
     return b;
   }
 
-  var facts = win.add("statictext", undefined, "", { multiline: true });
-  facts.preferredSize = [240, 64];
   var bAdd = flatButton(win, "Add Output", { primary: true,
-    tip: "Adjustment layer with minColor Output at the top of the active comp" });
+    tip: "Adjustment layer with minColor Output at the top of the active comp (under a macOS Fix layer if there is one)" });
+  var bShim = flatButton(win, "Pin Viewport Shim", {
+    tip: "Writes the macOS viewport shim into minColor/ next to the project and makes it the project's OCIO config.\n" +
+         "Turns OCIO on: on an Adobe-engine project that changes how footage is interpreted.\n" +
+         "Press again after moving the project." });
   var report = win.add("statictext", undefined, "", { multiline: true });
   report.preferredSize = [240, 64];
   var ver = win.add("statictext", undefined, "minColor " + VERSION);
   ver.graphics.foregroundColor = ver.graphics.newPen(ver.graphics.PenType.SOLID_COLOR, [0.55, 0.55, 0.55, 1], 1);
 
-  function refreshFacts() {
-    var lines = [], p = app.project;
-    if (!p) { facts.text = "No project."; return; }
-    lines.push(p.file ? "Project: " + p.file.name.replace(/%20/g, " ") : "Project: not saved yet");
-    var c = colourFacts();
-    if (c.cms === 0) lines.push("Colour engine: Adobe (use macOS Fix on a guide layer)");
-    else if (c.ocio) lines.push("Colour engine: OCIO, " + (c.shimPinned ? "viewport shim" : baseName(c.config) || "built-in config"));
-    else lines.push("Colour engine: not readable");
-    if (c.ocio) {
-      /* "None" = AE converts nothing at all (import, viewer, output); it happens when a
-         config is pinned that lacks the old working space's name */
-      var ws = ""; try { ws = p.workingSpace; } catch (e) {}
-      lines.push("Working space: " + (ws || "unknown") +
-                 (ws === "None" ? " (set it in Project Settings > Color)" : ""));
-    }
-    var dir = sidecarFolder();
-    lines.push("Folder: " + (!dir ? "none until the project is saved" : (dir.exists ? "minColor/" : "minColor/ not created yet")));
-    facts.text = lines.join("\n");
-  }
   function run(fn) {
     var lines;
     try { lines = fn(); } catch (e) { lines = ["Error: " + e.toString() + " (line " + e.line + ")"]; log("ERR " + e.toString() + " line " + e.line); }
     report.text = lines.join("\n");
     log(lines.join(" | "));
-    refreshFacts();
     try { win.update(); } catch (e) {}
   }
   bAdd.onClick = function () { this.active = false; run(addOutput); };   /* active=false: ScriptUI keeps a pressed look otherwise */
-  win.onActivate = function () { try { refreshFacts(); } catch (e) {} };
+  bShim.onClick = function () { this.active = false; run(pinShim); };
 
-  refreshFacts();
   win.layout.layout(true);
   win.onResizing = win.onResize = function () { try { this.layout.resize(); } catch (e) {} };
   if (win instanceof Window) { win.center(); win.show(); }
