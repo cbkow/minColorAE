@@ -38,9 +38,15 @@ target_link_libraries(probe_core PRIVATE drt_core dctl_ref)
 
 add_executable(dump_presets tools/dump_presets.cpp)
 target_link_libraries(dump_presets PRIVATE drt_core)
+add_executable(make_ocio tools/make_ocio.cpp)
+target_link_libraries(make_ocio PRIVATE drt_core)
 
 enable_testing()
 add_test(NAME probe_core COMMAND probe_core)
+# ocio/mincolor.ocio is generated from the core: fail when the committed copy is stale
+add_test(NAME ocio_current
+         COMMAND ${CMAKE_COMMAND} -DGEN=$<TARGET_FILE:make_ocio> -DOUT=${CMAKE_CURRENT_BINARY_DIR}/mincolor.ocio
+                 -DREF=${CMAKE_CURRENT_SOURCE_DIR}/ocio/mincolor.ocio -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_generated.cmake)
 
 # ---- After Effects plugins (needs the Adobe SDK; skipped when absent) --------
 add_subdirectory(ae)
