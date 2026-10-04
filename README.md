@@ -26,8 +26,9 @@ Version 0.1.3. macOS (Metal + CPU), After Effects 26.5.
 
 `ocio/mincolor.ocio` is the OCIO config for linear conversions: five linear
 working spaces (ACEScg, ACES2065-1, Linear Rec.709, Linear P3-D65, Linear
-Rec.2020), sRGB and Rec.709 BT.1886 for delivery and viewing, one view
-(Un-tone-mapped), a macOS display that carries the same viewport
+Rec.2020), sRGB, Rec.709 BT.1886 and Display P3 for delivery and viewing, one view
+(Un-tone-mapped), a Display P3 display for P3 monitors where AE's viewer is not
+colour managed (Windows), a macOS display that carries the same viewport
 correction as the macOS Fix effect, and a macOS Video display that shows a
 Rec.709 BT.1886 delivery as a Mac plays it. It is generated from the core's matrices, so
 it and minColor Input agree; the panel's Fix OCIO installs it per project.
