@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # minColorAE. Copyright (C) 2026 cbkow.
-# cmake -DIN=panel/minColor.jsx -DCONFIG=... -DSHIM=... -DINJSON=panel/in.json -DPRESETS=<dump_presets output>
+# cmake -DIN=panel/minColor.jsx -DCONFIG=... -DUNMANAGED=... -DINJSON=panel/in.json -DPRESETS=<dump_presets output>
 #       -DVERSION=x.y.z -DOUT=... -P embed.cmake
-# Fills the panel's @...@ tokens: the version, the OCIO config, the viewport shim and the starter in.json as
+# Fills the panel's @...@ tokens: the version, the two OCIO configs and the starter in.json as
 # JavaScript string literals, and the minColor Input's Gamut and Transfer menu
 # entries and the Output's Display Encoding presets (in menu order) as JSON arrays, read from dump_presets' output so they
 # come from the same C++ tables the effect builds its menus from.
@@ -17,7 +17,7 @@ function(js_string var path)
 endfunction()
 
 js_string(MINCOLOR_CONFIG_JS "${CONFIG}")
-js_string(MINCOLOR_SHIM_JS "${SHIM}")
+js_string(MINCOLOR_UNMANAGED_JS "${UNMANAGED}")
 js_string(MINCOLOR_IN_JSON_JS "${INJSON}")
 file(READ "${PRESETS}" _p)
 string(JSON MINCOLOR_INPUT_GAMUTS GET "${_p}" input_gamuts)

@@ -489,7 +489,7 @@ int main()
         ok = ok && good;
     }
 
-    /* 10h. macOS Fix (not in upstream): equals the macOS view of the earlier viewport shim
+    /* 10h. macOS Fix (not in upstream): equals the macOS view of ocio/mincolor-unmanaged.ocio
             (PyOpenColorIO 2.6, 2026-10-03), which ocio/mincolor.ocio's macOS display reproduces
             on linear input (4e-6, PyOpenColorIO, 2026-10-04). */
     {
@@ -501,7 +501,7 @@ int main()
             worst = std::max(worst, double(std::max(std::fabs(o.x - ref[i][0]), std::max(std::fabs(o.y - ref[i][1]), std::fabs(o.z - ref[i][2])))));
         }
         const bool good = worst < 2e-4;
-        std::printf("%-34s vs viewport shim worst %.2e  %s\n", "macOS fix", worst, good ? "" : "FAILED");
+        std::printf("%-34s vs unmanaged config worst %.2e  %s\n", "macOS fix", worst, good ? "" : "FAILED");
         ok = ok && good;
     }
 

@@ -56,18 +56,18 @@ passes pixels through and the effects do everything:
    on a Mac.
 
 **Unmanaged (OCIO pass-through; Fix OCIO's "Unmanaged").** The same as the Adobe
-engine setup, but in OCIO: the project's config is the viewport shim,
-`minColor/mincolor-viewport-shim.ocio`, whose working space "minColor Output" is
+engine setup, but in OCIO: the project's config is
+`minColor/mincolor-unmanaged.ocio`, whose working space "minColor Output" is
 only a label and whose views pass pixels through. The Output encodes for the
 display (default sRGB Display - 2.2 Power / Rec.709) and renders as it shows; the
-shim's **macOS (AE viewport fix)** display corrects the viewer, so no macOS Fix
+config's **macOS (AE viewport fix)** display corrects the viewer, so no macOS Fix
 layer is needed, and **Windows (passthrough)** leaves the pixels alone. The panel
 leaves the effects' gamuts at their defaults.
 
 **The macOS correction (a workaround, on purpose).** AE's viewport on macOS is
 Display P3 decoded as a 2.2 power, so Rec.709 pictures show oversaturated. The
 config's **macOS (AE viewport fix)** display sends linear P3-D65 encoded 2.2; the
-shim's display of the same name and the **minColor macOS Fix** effect do the same
+Unmanaged config's display of the same name and the **minColor macOS Fix** effect do the same
 to an Output's sRGB Display codes
 (decode 2.2, Rec.709 -> P3-D65, encode 2.2; the probe checks it against the
 config's view). The effect has no settings and belongs on a **Guide Layer**

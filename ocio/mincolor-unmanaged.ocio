@@ -3,21 +3,22 @@ ocio_profile_version: 2
 # SPDX-License-Identifier: GPL-3.0-only
 # minColorAE. Copyright (C) 2026 cbkow. Part of a work derived from OpenDRT v1.1.0 by Jed Smith (GPLv3); see NOTICE.
 
-# minColor VIEWPORT SHIM — a deliberate hack, not a colour pipeline.
+# minColor UNMANAGED: a pass-through config, not a colour pipeline (the panel's Fix
+# OCIO pins it for "Unmanaged"; until 2026-10-04 it was mincolor-viewport-shim.ocio).
 #
-# Pin this in After Effects (Project Settings > Color, OCIO) only to fix how AE's
-# viewport shows colour on macOS. It describes nothing about the scene: the working
+# Its only job is to fix how AE's viewport shows colour on macOS. It describes
+# nothing about the scene: the working
 # space is a label, every role points at it, and AE is assumed to pass pixels through
 # untouched. All real colour is done by the minColor effects.
 #
-# Contract: the minColor Output's View encoding is "sRGB Display - 2.2 Power / Rec.709".
+# Contract: the minColor Output's Display Encoding is "sRGB Display - 2.2 Power / Rec.709".
 #   macOS (AE viewport fix): those codes re-encoded for AE's Display P3 viewport
 #                            (decode 2.2, Rec.709 -> P3-D65 primaries, encode 2.2);
 #                            the same thing a studio's P3 2.2 house display does to a 709 picture.
 #   Windows (passthrough):   the codes go to the screen as they are.
 # Viewer transforms never render: the Render Queue gets the Output's pixels unchanged.
 
-name: mincolor-viewport-shim
+name: mincolor-unmanaged
 strictparsing: false
 
 roles:

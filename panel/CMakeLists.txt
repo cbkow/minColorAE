@@ -18,13 +18,13 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
           -DIN=${CMAKE_CURRENT_SOURCE_DIR}/minColor.jsx
           -DCONFIG=${CMAKE_SOURCE_DIR}/ocio/mincolor.ocio
-          -DSHIM=${CMAKE_SOURCE_DIR}/ocio/mincolor-viewport-shim.ocio
+          -DUNMANAGED=${CMAKE_SOURCE_DIR}/ocio/mincolor-unmanaged.ocio
           -DINJSON=${CMAKE_CURRENT_SOURCE_DIR}/in.json
           -DPRESETS=${_presets}
           -DVERSION=${PROJECT_VERSION}
           -DOUT=${_panel_out}
           -P ${CMAKE_CURRENT_SOURCE_DIR}/embed.cmake
-  DEPENDS minColor.jsx embed.cmake in.json "${_presets}" ${CMAKE_SOURCE_DIR}/ocio/mincolor.ocio ${CMAKE_SOURCE_DIR}/ocio/mincolor-viewport-shim.ocio
+  DEPENDS minColor.jsx embed.cmake in.json "${_presets}" ${CMAKE_SOURCE_DIR}/ocio/mincolor.ocio ${CMAKE_SOURCE_DIR}/ocio/mincolor-unmanaged.ocio
   COMMENT "Embedding the OCIO config into the panel"
   VERBATIM)
 add_custom_target(mincolor_panel ALL DEPENDS "${_panel_out}")

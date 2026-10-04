@@ -17,7 +17,7 @@
 //   - one view, "Un-tone-mapped", on three displays: sRGB, Rec.709 (BT.1886) and
 //     macOS (AE viewport fix). The macOS display is viewer-only and never a
 //     delivery: AE's viewport on macOS is Display P3 decoded as a 2.2 power, so
-//     that view sends linear P3-D65 encoded 2.2 (what the earlier viewport shim
+//     that view sends linear P3-D65 encoded 2.2 (what mincolor-unmanaged.ocio
 //     and the minColor macOS Fix effect do to the Output's sRGB codes);
 //   - no file rules beyond Default, and the default role is Raw (data), so AE
 //     never converts footage on import: minColor Input interprets media.
