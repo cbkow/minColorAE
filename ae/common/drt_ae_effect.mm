@@ -118,7 +118,7 @@ struct DrtRender {
    and mirror it in the PiPLs' AE_Effect_Version: PF_VERSION(major, minor, 0, DEVELOP, 1). */
 #define DRT_MAJOR_VERSION 0
 #define DRT_MINOR_VERSION 1
-#define DRT_BUG_VERSION   1   /* 1: the Output's View/Render pair removed (2026-10-04). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
+#define DRT_BUG_VERSION   2   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges (2026-10-04). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
 
 extern "C" {
 DllExport PF_Err EffectMain(PF_Cmd cmd, PF_InData *in_data, PF_OutData *out_data,
@@ -320,7 +320,7 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
             def.ui_flags = PF_PUI_INVISIBLE;
             /* fall through */
         case drtae::kFloat:
-            PF_ADD_FLOAT_SLIDERX(r.name, r.lo, r.hi, r.lo, r.hi, double(r.f ? dflt.*(r.f) : dx.g.*(r.gf)), r.prec,
+            PF_ADD_FLOAT_SLIDERX(r.name, r.lo, r.hi, r.shi > r.slo ? r.slo : r.lo, r.shi > r.slo ? r.shi : r.hi, double(r.f ? dflt.*(r.f) : dx.g.*(r.gf)), r.prec,
                                  PF_ValueDisplayFlag_NONE, 0, id);
             break;
         case drtae::kCheck:

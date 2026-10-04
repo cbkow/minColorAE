@@ -88,8 +88,9 @@ project, under minColor Output in an Unmanaged or Adobe-engine one; or on single
 hot layers. Linear in and out, 1.0 = 100 nits.
 
 - **Source Peak (nits)**, default 1000: the brightest content that should still
-  map; anything brighter lands on the target too.
-- **Target Peak (nits)**, default 100.
+  map; anything brighter lands on the target too. The slider drags 100-4000; type
+  up to 10000.
+- **Target Peak (nits)**, default 100. The slider drags 48-1000; type up to 10000.
 - **Auto Knee Start (BT.2390)**, on by default: BT.2390's shoulder and knee start,
   exactly as QCView's Highlight Knee. It starts early: for 1000 -> 100 nits the knee
   begins near 28 nits and SDR white (100 nits) lands near 70.

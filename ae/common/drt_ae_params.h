@@ -73,9 +73,11 @@ struct Row {
     short       choices;     /* for runtime-built popups: how many of the table's names to offer */
     const int  *map;         /* popup choice -> field value, or nullptr for identity */
     int         id;          /* AE parameter id; 0 = auto (see the header comment) */
+    float       slo, shi;    /* floats: the slider's drag range when narrower than lo..hi (0, 0 = lo..hi) */
 };
 
 #define DRT_F(field, label, lo, hi, prec) { kFloat, label, &drt::DrtParams::field, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0 }
+#define DRT_FS(field, label, lo, hi, slo, shi, prec) { kFloat, label, &drt::DrtParams::field, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0, slo, shi }
 #define DRT_FX(field, label, lo, hi, prec, id) { kFloat, label, &drt::DrtParams::field, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, id }
 #define DRT_C(field, label)               { kCheck, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 1, 0, nullptr, 0, nullptr, 0 }
 #define DRT_P(field, label, str, n)       { kPopup, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 0, 0, str, n, nullptr, 0 }
@@ -347,8 +349,8 @@ static const int kMacFixRowCount = int(sizeof(kMacFixRows) / sizeof(kMacFixRows[
 /* core/mincolor_knee.h. Linear in and out, 1.0 = 100 nits; no gamut row (max(R,G,B)
    is taken over whatever space the comp is in). A new table: auto ids from 1. */
 static const Row kKneeRows[] = {
-    DRT_F(kn_src,   "Source Peak (nits)", 100.0f, 10000.0f, 0),   /* the brightest content that should still map */
-    DRT_F(kn_tgt,   "Target Peak (nits)", 48.0f,  10000.0f, 0),   /* 100 for SDR deliveries */
+    DRT_FS(kn_src,  "Source Peak (nits)", 100.0f, 10000.0f, 100.0f, 4000.0f, 0),   /* drag to 4000 (mastering peaks), type up to 10000 */
+    DRT_FS(kn_tgt,  "Target Peak (nits)", 48.0f,  10000.0f, 48.0f,  1000.0f, 0),   /* 100 for SDR deliveries; drag to 1000, type up to 10000 */
     DRT_C(kn_auto,  "Auto Knee Start (BT.2390)"),
     DRT_F(kn_start, "Knee Start",         0.0f,   0.99f,    2),   /* fraction of the target, in PQ; greyed under Auto */
 };
