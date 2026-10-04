@@ -11,8 +11,9 @@
 // detection anyway. No timers, no idle work; it changes the project only from a
 // button and reports only what that click did.
 //
-// Sidecar: <project folder>/minColor/ holds the viewport shim (and, later, the
-// In/Out presets). Fix OCIO writes the shim there, makes it the project's OCIO
+// Sidecar: <project folder>/minColor/ holds the viewport shim, in.json (and, later, the
+// Out presets; in.json is the In presets, written from the panel's starter on
+// first use). Fix OCIO writes the shim there, makes it the project's OCIO
 // config, and sets the working space to minColor Output by editing the saved
 // .aep and reopening it: AE has no API that sets an OCIO working space (the
 // scripting setter leaves it None, the plug-in suites are read-only), and on a
@@ -37,6 +38,11 @@
   var SHIM_TEXT = @MINCOLOR_SHIM_JS@;
   var MN_OUTPUT = "ski.bialkow minColor Output";
   var MN_MACFIX = "ski.bialkow minColor macOS Fix";
+  var MN_INPUT = "ski.bialkow minColor Input";
+  var IN_JSON = @MINCOLOR_IN_JSON_JS@;                 /* the starter minColor/in.json */
+  var IN_GAMUTS = @MINCOLOR_INPUT_GAMUTS@;             /* the Input's menus, in menu order (item k = value k + 1) */
+  var IN_TRANSFERS = @MINCOLOR_INPUT_TRANSFERS@;
+  var IN_RANGES = ["Full", "Limited (video)"];         /* kRangePopup in ae/common/drt_ae_params.h */
 
   var win;
   if (thisObj instanceof Panel) win = thisObj;
@@ -136,6 +142,103 @@
     return out;
   }
 
+  // ---- In presets ---------------------------------------------------------------------
+  function indexOf(a, v) { for (var i = 0; i < a.length; i++) if (a[i] === v) return i; return -1; }
+  function parseJSON(text) { try { return eval("(" + text + ")"); } catch (e) { return null; } }   /* ExtendScript has no JSON */
+
+  /* The rules: minColor/in.json next to the saved project (written from the starter when
+     missing), the starter itself for an unsaved one. Each rule becomes
+     {name, exts, g, t, r} with menu values; a rule naming an entry the Input lacks is
+     dropped and reported. */
+  function loadInRules(out) {
+    var text = IN_JSON, where = "built-in rules (project not saved)", f = app.project.file;
+    if (f) {
+      var dir = new Folder(f.parent.fsName + "/minColor"), jf = new File(dir.fsName + "/in.json");
+      if (!jf.exists) {
+        if ((dir.exists || dir.create()) && writeText(jf, IN_JSON)) out.push("Wrote minColor/in.json (edit it to change the rules).");
+        else out.push("Could not write minColor/in.json; using the built-in rules.");
+      }
+      if (jf.exists) { text = readText(jf); where = "minColor/in.json"; }
+    }
+    var d = parseJSON(text);
+    if (!d || !(d.rules instanceof Array)) { out.push(where + " is not valid JSON with a \"rules\" list; nothing applied."); return null; }
+    var rules = [];
+    for (var i = 0; i < d.rules.length; i++) {
+      var r = d.rules[i], label = r.name || ("rule " + (i + 1));
+      var g = indexOf(IN_GAMUTS, r.gamut), t = indexOf(IN_TRANSFERS, r.transfer), rg = indexOf(IN_RANGES, r.range || "Full");
+      if (g < 0 || t < 0 || rg < 0 || !(r.extensions instanceof Array)) {
+        out.push("Skipped \"" + label + "\" in " + where + ": " + (g < 0 ? "unknown gamut \"" + r.gamut + "\"" :
+                 (t < 0 ? "unknown transfer \"" + r.transfer + "\"" : (rg < 0 ? "unknown range \"" + r.range + "\"" : "no extensions list"))) + ".");
+        continue;
+      }
+      var exts = {}; for (var k = 0; k < r.extensions.length; k++) exts[String(r.extensions[k]).toLowerCase().replace(/^\./, "")] = true;
+      rules.push({ name: label, exts: exts, g: g + 1, t: t + 1, r: rg + 1 });
+    }
+    return { rules: rules, where: where };
+  }
+  function ruleFor(rules, ext) { for (var i = 0; i < rules.length; i++) if (rules[i].exts[ext]) return rules[i]; return null; }
+  function footageExt(layer) {
+    var src = null;
+    try { src = layer.source; } catch (e) { return null; }   /* cameras, lights */
+    if (!(src instanceof FootageItem) || !(src.mainSource instanceof FileSource) || !src.file) return null;
+    var m = src.file.name.match(/\.([^.]+)$/);
+    return m ? m[1].toLowerCase() : "";
+  }
+  function inputEffect(layer) {
+    var parade = layer.property("ADBE Effect Parade");
+    for (var i = 1; i <= parade.numProperties; i++) if (parade.property(i).matchName === MN_INPUT) return parade.property(i);
+    return null;
+  }
+
+  /* Apply In: for each selected layer in the active comp whose source is a file, the
+     first rule matching its extension sets minColor Input's Gamut, Transfer and Range,
+     adding the effect first in the stack when the layer has none. Shows the plan, then
+     applies it as one undo group. Reports every selected layer, changed or not. */
+  function applyIn() {
+    var out = [];
+    var comp = app.project.activeItem;
+    if (!(comp instanceof CompItem)) { out.push("Open a comp and select footage layers first; nothing changed."); return out; }
+    var sel = comp.selectedLayers;
+    if (!sel.length) { out.push("Select footage layers in \"" + comp.name + "\" first; nothing changed."); return out; }
+    var R = loadInRules(out);
+    if (!R) return out;
+    var plan = [], notes = [];
+    for (var i = 0; i < sel.length; i++) {
+      var l = sel[i], tag = l.index + " \"" + l.name + "\"", ext = footageExt(l);
+      if (ext === null) { notes.push(tag + ": not file footage, skipped"); continue; }
+      var rule = ruleFor(R.rules, ext);
+      if (!rule) { notes.push(tag + ": no rule for ." + ext + ", skipped"); continue; }
+      var fx = inputEffect(l), what = rule.name + ": " + IN_GAMUTS[rule.g - 1] + ", " + IN_TRANSFERS[rule.t - 1] + ", " + IN_RANGES[rule.r - 1];
+      if (fx && fx.property("Input Gamut").value === rule.g && fx.property("Input Transfer").value === rule.t &&
+          fx.property("Input Range").value === rule.r) { notes.push(tag + ": already " + what); continue; }
+      plan.push({ layer: l, rule: rule, add: !fx, line: tag + ": " + (fx ? "set " : "add Input, ") + what });
+    }
+    if (!plan.length) { out.push("Nothing to change (" + R.where + ")."); return out.concat(notes); }
+    var lines = []; for (var j = 0; j < plan.length; j++) lines.push(plan[j].line);
+    var shown = lines.length > 15 ? lines.slice(0, 15).concat(["... and " + (lines.length - 15) + " more"]) : lines;
+    if (!$.global.__minColorAEAutoConfirm && !confirm("Apply In (" + R.where + "):\n\n" + shown.join("\n") + "\n\nApply?")) {
+      out.push("Cancelled. Nothing changed."); return out;
+    }
+    app.beginUndoGroup("minColor: Apply In");
+    var done = 0;
+    try {
+      for (var k = 0; k < plan.length; k++) {
+        var P = plan[k], parade = P.layer.property("ADBE Effect Parade"), e;
+        if (P.add) {
+          parade.addProperty(MN_INPUT).moveTo(1);   /* moveTo invalidates the reference: fetch it again */
+          e = parade.property(1);
+        } else e = inputEffect(P.layer);
+        e.property("Input Gamut").setValue(P.rule.g);
+        e.property("Input Transfer").setValue(P.rule.t);
+        e.property("Input Range").setValue(P.rule.r);
+        done++;
+      }
+    } catch (err) { out.push("Stopped after " + done + " of " + plan.length + ": " + err.toString()); }
+    app.endUndoGroup();
+    out.push("Applied to " + done + " layer" + (done === 1 ? "" : "s") + " (" + R.where + "):");
+    return out.concat(lines.slice(0, done), notes);
+  }
+
   // ---- layers ------------------------------------------------------------------------
   function hasEffect(layer, matchName) {
     var parade;
@@ -222,6 +325,9 @@
     return b;
   }
 
+  var bIn = flatButton(win, "Apply In", { primary: true,
+    tip: "Sets minColor Input on the selected footage layers from minColor/in.json, by file extension\n" +
+         "(adds the effect first in the stack where missing). Shows the changes before applying." });
   var bAdd = flatButton(win, "Add Output", { primary: true,
     tip: "Adjustment layer with minColor Output at the top of the active comp (under a macOS Fix layer if there is one)" });
   var bShim = flatButton(win, "Fix OCIO", {
@@ -230,7 +336,7 @@
          "Turns OCIO on: on an Adobe-engine project that changes how footage is interpreted.\n" +
          "Press again after moving the project." });
   var report = win.add("statictext", undefined, "", { multiline: true });
-  report.preferredSize = [240, 64];
+  report.preferredSize = [240, 96];
   var ver = win.add("statictext", undefined, "minColor " + VERSION);
   ver.graphics.foregroundColor = ver.graphics.newPen(ver.graphics.PenType.SOLID_COLOR, [0.55, 0.55, 0.55, 1], 1);
 
@@ -241,9 +347,11 @@
     log(lines.join(" | "));
     try { win.update(); } catch (e) {}
   }
+  bIn.onClick = function () { this.active = false; run(applyIn); };
   bAdd.onClick = function () { this.active = false; run(addOutput); };   /* active=false: ScriptUI keeps a pressed look otherwise */
   bShim.onClick = function () { this.active = false; run(fixOCIO); };
 
+  win.__mc = { applyIn: bIn, addOutput: bAdd, fixOCIO: bShim, report: report };   /* for unattended tests */
   win.layout.layout(true);
   win.onResizing = win.onResize = function () { try { this.layout.resize(); } catch (e) {} };
   if (win instanceof Window) { win.center(); win.show(); }

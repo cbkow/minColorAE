@@ -1,19 +1,29 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # minColorAE. Copyright (C) 2026 cbkow.
-# The ScriptUI panel: panel/minColor.jsx with the version and the viewport shim
-# embedded (embed.cmake), so the shim the panel writes is always this build's.
+# The ScriptUI panel: panel/minColor.jsx with the version, the viewport shim, the
+# starter in.json and the Input's menu entries embedded (embed.cmake), so what the
+# panel writes and sets is always this build's.
 # Needs no SDK.
 
 set(_panel_out "${CMAKE_CURRENT_BINARY_DIR}/minColor.jsx")
+set(_presets "${CMAKE_CURRENT_BINARY_DIR}/drt_presets.json")
+add_custom_command(
+  OUTPUT "${_presets}"
+  COMMAND dump_presets "${_presets}"
+  DEPENDS dump_presets
+  COMMENT "Input menu entries for the panel"
+  VERBATIM)
 add_custom_command(
   OUTPUT "${_panel_out}"
   COMMAND ${CMAKE_COMMAND}
           -DIN=${CMAKE_CURRENT_SOURCE_DIR}/minColor.jsx
           -DSHIM=${CMAKE_SOURCE_DIR}/ocio/mincolor-viewport-shim.ocio
+          -DINJSON=${CMAKE_CURRENT_SOURCE_DIR}/in.json
+          -DPRESETS=${_presets}
           -DVERSION=${PROJECT_VERSION}
           -DOUT=${_panel_out}
           -P ${CMAKE_CURRENT_SOURCE_DIR}/embed.cmake
-  DEPENDS minColor.jsx embed.cmake ${CMAKE_SOURCE_DIR}/ocio/mincolor-viewport-shim.ocio
+  DEPENDS minColor.jsx embed.cmake in.json "${_presets}" ${CMAKE_SOURCE_DIR}/ocio/mincolor-viewport-shim.ocio
   COMMENT "Embedding the viewport shim into the panel"
   VERBATIM)
 add_custom_target(mincolor_panel ALL DEPENDS "${_panel_out}")

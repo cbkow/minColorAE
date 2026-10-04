@@ -1,0 +1,42 @@
+{
+  "about": "minColor In presets. Apply In matches a footage layer's file extension against these rules, first match wins, and sets the minColor Input effect to the rule's gamut, transfer and range. Names are the Input effect's menu entries, spelled exactly. Edit freely; the panel reads this file on every Apply In.",
+  "rules": [
+    {
+      "name": "OpenEXR",
+      "extensions": ["exr", "sxr"],
+      "gamut": "ACEScg", "transfer": "Linear", "range": "Full"
+    },
+    {
+      "name": "Radiance HDR",
+      "extensions": ["hdr", "rgbe"],
+      "gamut": "Rec.709", "transfer": "Linear", "range": "Full"
+    },
+    {
+      "name": "Stills and graphics (sRGB)",
+      "extensions": ["tif", "tiff", "jpg", "jpeg", "jpe", "png", "bmp", "gif", "tga", "targa", "webp",
+                     "psd", "psb", "eps", "ai", "pdf", "svg", "heic", "heif", "avif", "ico"],
+      "gamut": "Rec.709", "transfer": "sRGB", "range": "Full"
+    },
+    {
+      "name": "Video (Rec.709; AE already expands video levels on decode, so Full)",
+      "extensions": ["mov", "mp4", "m4v", "mxf", "avi", "mkv", "webm", "mpg", "mpeg", "m2v", "m2ts", "mts",
+                     "ts", "wmv", "flv", "3gp", "dv"],
+      "gamut": "Rec.709", "transfer": "Rec.1886 (2.4 power)", "range": "Full"
+    },
+    {
+      "name": "RED raw (assumes the importer decodes to REDWideGamutRGB / Log3G10)",
+      "extensions": ["r3d"],
+      "gamut": "RED Wide Gamut RGB", "transfer": "RED Log3G10", "range": "Full"
+    },
+    {
+      "name": "ARRIRAW, ALEXA / Mini / LF (assumes the importer decodes to AWG3 / LogC3)",
+      "extensions": ["ari"],
+      "gamut": "ARRI Wide Gamut 3", "transfer": "ARRI LogC3", "range": "Full"
+    },
+    {
+      "name": "ARRIRAW, ALEXA 35 (assumes the importer decodes to AWG4 / LogC4)",
+      "extensions": ["arx"],
+      "gamut": "ARRI Wide Gamut 4", "transfer": "ARRI LogC4", "range": "Full"
+    }
+  ]
+}
