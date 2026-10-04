@@ -45,6 +45,9 @@ add_test(NAME probe_core COMMAND probe_core)
 # ---- After Effects plugins (needs the Adobe SDK; skipped when absent) --------
 add_subdirectory(ae)
 
+# ---- ScriptUI panel (no SDK needed) -------------------------------------------
+add_subdirectory(panel)
+
 # ---- MSL compile check (macOS with Xcode's Metal toolchain) ----------------
 if(APPLE)
   find_program(XCRUN xcrun)
