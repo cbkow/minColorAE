@@ -33,7 +33,9 @@ OCIO. Depth 32 bpc.
 2. Composite in the linear working space.
 3. View through the config: display **macOS (AE viewport fix)** on a Mac, **sRGB**
    or **Rec.709 (BT.1886)** elsewhere, **Display P3** on a P3 monitor where AE's viewer
-   is not colour managed (Windows; P3-D65, the sRGB curve), view **Un-tone-mapped**. **macOS Video (AE
+   is not colour managed (Windows; P3-D65, the sRGB curve), view **Un-tone-mapped**.
+   The display is chosen in the Composition panel and kept per project; a project
+   Fix OCIO has just set up starts at None (scripts cannot set it). **macOS Video (AE
    viewport fix)** shows a Rec.709 BT.1886 delivery as a Mac plays it (encoded 2.4,
    decoded with the sRGB curve: lighter midtones, lifted shadows; grey 0.18 shows
    at 0.486 instead of 0.459). Deliver through
@@ -343,16 +345,21 @@ cmake -S . -B build -DMINCOLOR_AE_SDK=/path/to/AfterEffectsSDK   # or symlink it
 cmake --build build --target install_ae
 ```
 
-Bundles land in `/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/minColor/`.
-Restart AE; the effects are under Effect > minColor. Remove the folder to uninstall.
+Bundles land in `/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/minColor/`
+(on Windows, `.aex` files in `C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore\minColor\`;
+see the top-level README). Restart AE; the effects are under Effect > minColor. Remove
+the folder to uninstall.
 
 CPU path: the C++ core through AE's iterate suites, 8, 16 and 32 bpc (8 and 16 are
-converted to float and clamped back). GPU path: Metal, the same kernel source
-as the CPU path, compiled once per device with fast-math off. Alpha is handled
+converted to float and clamped back). GPU path: Metal on macOS, compiled once
+per device with fast-math off; CUDA on Windows, compiled ahead by nvcc without fast
+maths or FMA contraction, run on AE's CUDA stream. Both are the same core source as the
+CPU path (the effect's GPU code is in `common/drt_ae_gpu_*.{mm,cpp}`); `check_cuda`
+compares the CUDA kernels with the CPU for every effect. Alpha is handled
 straight: unpremultiply, transform, premultiply.
 
 ## What is not there yet
 
 - User presets (Add / Remove Preset against the shared JSON). Built-in presets only.
-- Windows (CUDA / DirectX kernels from the same source).
+- A DirectX 12 path for non-NVIDIA GPUs on Windows (they render on the CPU today).
 - Greying out a group's sliders when its Enable is off.
