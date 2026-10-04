@@ -13,8 +13,8 @@
 //
 // Sidecar: <project folder>/minColor/ holds mincolor.ocio (the OCIO config),
 // in.json (the In presets, written from the panel's starter on first use) and
-// project.json (the working space Fix OCIO set, which Apply In and Add Output
-// follow: the panel's own record, never read back from AE). Fix OCIO writes the
+// project.json (the working space Fix OCIO set, which Apply In, Add Output and
+// Add AgX follow: the panel's own record, never read back from AE). Fix OCIO writes the
 // config there, makes it the project's OCIO config, and sets the chosen working
 // space by editing the saved .aep and reopening it: AE has no API that sets an
 // OCIO working space (the scripting setter leaves it None, the plug-in suites are
@@ -44,6 +44,7 @@
   var MN_OUTPUT = "ski.bialkow minColor Output";
   var MN_MACFIX = "ski.bialkow minColor macOS Fix";
   var MN_INPUT = "ski.bialkow minColor Input";
+  var MN_AGX = "ski.bialkow minColor AgX";
   var IN_JSON = @MINCOLOR_IN_JSON_JS@;                 /* the starter minColor/in.json */
   var IN_GAMUTS = @MINCOLOR_INPUT_GAMUTS@;             /* the Input's menus, in menu order (item k = value k + 1) */
   var IN_TRANSFERS = @MINCOLOR_INPUT_TRANSFERS@;
@@ -207,7 +208,7 @@
       return out;
     }
     if (!writeText(new File(dir.fsName + "/project.json"), '{\n  "working": "' + name + '"\n}\n'))
-      out.push("Could not write minColor/project.json; Apply In and Add Output will not follow the working space.");
+      out.push("Could not write minColor/project.json; Apply In, Add Output and Add AgX will not follow the working space.");
     out.push("Fixed: OCIO config minColor/" + cfgName + ", working space " + wsName + (W.gamut ? "" : " (Unmanaged: the Output encodes for the display)") + ". Project reopened.");
     out.push("Backup: minColor/" + backup.name.replace(/%20/g, " "));
     if (prev && prev.working !== name) out.push("The working space changed from " + prev.working + ": press Apply In and check each minColor Output's Input Gamut.");
@@ -510,6 +511,44 @@
     return out;
   }
 
+  /* Add AgX: an adjustment layer carrying minColor AgX, its Working Gamut set to the
+     working space Fix OCIO chose (the Working Gamut menu is the Input's, so W.working
+     indexes it too). AgX forms the picture the Output then encodes, so it goes under the
+     comp's Output and macOS Fix layers, or at the top without them. One per comp.
+     Target Gamut stays Rec.709 (sRGB): the panel cannot know the delivery. */
+  function addAgX() {
+    var out = notInstalled("minColor AgX");
+    if (out) return out;
+    out = [];
+    var comp = app.project.activeItem;
+    if (!(comp instanceof CompItem)) { out.push("Open or select a comp first; nothing added."); return out; }
+    var existing = findLayers(comp, MN_AGX);
+    if (existing.length) {
+      out.push("\"" + comp.name + "\" already has minColor AgX on layer " + existing[0].index +
+               " (\"" + existing[0].name + "\"); nothing added.");
+      return out;
+    }
+    var above = findLayers(comp, MN_MACFIX).concat(findLayers(comp, MN_OUTPUT)), low = null;
+    for (var i = 0; i < above.length; i++) if (!low || above[i].index > low.index) low = above[i];
+    app.beginUndoGroup("minColor: Add AgX");
+    try {
+      var l = comp.layers.addSolid([1, 1, 1], "minColor AgX", comp.width, comp.height, comp.pixelAspect, comp.duration);
+      l.adjustmentLayer = true;
+      var fx = l.property("ADBE Effect Parade").addProperty(MN_AGX);
+      var P0 = readProjectJSON(), W = P0 ? managedFor(P0.working) : null;
+      if (W) fx.property("Working Gamut").setValue(W.working);
+      if (low) l.moveAfter(low);
+      out.push("Added minColor AgX to \"" + comp.name + "\" on layer " + l.index +
+               (low ? ", under \"" + low.name + "\"" : ", at the top") +
+               (W ? "; Working Gamut " + W.gamut : "; Working Gamut ACEScg (no working space on record)") +
+               ", Target Rec.709 (change for P3 / Rec.2020 deliveries).");
+    } catch (e) {
+      out.push("Add AgX failed: " + e.toString());
+    }
+    app.endUndoGroup();
+    return out;
+  }
+
   // ---- UI ----------------------------------------------------------------------------
   /* Pill buttons in the AE-native (Spectrum 2) theme: an accent for the main action,
      a quiet outline for the rest. Fills only: AE remaps non-neutral pens. Height 30
@@ -596,6 +635,9 @@
          "(adds the effect first in the stack where missing). Shows the changes before applying." });
   var bAdd = flatButton(body, "Add Output", { primary: true,
     tip: "Adjustment layer with minColor Output at the top of the active comp (under a macOS Fix layer if there is one)" });
+  var bAgX = flatButton(body, "Add AgX", {
+    tip: "Adjustment layer with minColor AgX (Blender's AgX at its defaults), Working Gamut set to the\n" +
+         "project's working space, under the comp's Output / macOS Fix layers (or at the top)" });
   var report = body.add("statictext", undefined, "", { multiline: true });
   report.preferredSize = [240, 60];
   var ver = body.add("statictext", undefined, "minColor " + VERSION);
@@ -612,8 +654,9 @@
   bRules.onClick = function () { this.active = false; run(editInRules); };
   bAdd.onClick = function () { this.active = false; run(addOutput); };   /* active=false: ScriptUI keeps a pressed look otherwise */
   bFix.onClick = function () { this.active = false; run(fixOCIO); };
+  bAgX.onClick = function () { this.active = false; run(addAgX); };
 
-  win.__mc = { applyIn: bIn, inRules: bRules, addOutput: bAdd, fixOCIO: bFix, report: report };   /* for unattended tests */
+  win.__mc = { applyIn: bIn, inRules: bRules, addOutput: bAdd, addAgX: bAgX, fixOCIO: bFix, report: report };   /* for unattended tests */
   win.layout.layout(true);
   win.onResizing = win.onResize = function () { try { this.layout.resize(); } catch (e) {} };
   if (win instanceof Window) { win.center(); win.show(); }
