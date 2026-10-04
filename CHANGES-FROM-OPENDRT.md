@@ -45,7 +45,8 @@ None of them is part of, or endorsed by, OpenDRT.
 
 - The minColor Grade effect (`core/opendrt_grade.h`, `ae/common/drt_ae_wheels.h`):
   luminance zones defined through the tonescale, colour wheels, HSL secondary.
-- The minColor macOS Fix effect and the macOS display of `ocio/mincolor.ocio`: a
+- The minColor macOS Fix effect, the macOS display of `ocio/mincolor.ocio` and
+  `ocio/mincolor-viewport-shim.ocio` (Fix OCIO's Unmanaged): a
   workaround for how After Effects shows colour on macOS.
 - `ocio/mincolor.ocio` and `tools/make_ocio.cpp`: an OCIO config for linear
   conversions, generated from the core's gamut matrices (taken from upstream).
