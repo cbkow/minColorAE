@@ -31,7 +31,7 @@
 // panel writes and sets can never drift from the build it ships with.
 
 (function (thisObj) {
- var LOG = "/tmp/mincolor_panel.log";   /* a throw while a panel loads is a modal dialog; log instead */
+ var LOG = ($.os.indexOf("Windows") >= 0 ? Folder.temp.fsName : "/tmp") + "/mincolor_panel.log";   /* %TEMP% on Windows; a throw while a panel loads is a modal dialog, so log there instead (only if the file exists) */
  function log(s) {
    try { var f = new File(LOG); if (!f.exists) return; f.lineFeed = "Unix"; f.open("e"); f.seek(0, 2); f.writeln(new Date().toTimeString().substr(0, 8) + " " + s); f.close(); } catch (e) {}
  }

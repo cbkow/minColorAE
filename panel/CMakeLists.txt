@@ -29,9 +29,17 @@ add_custom_command(
   VERBATIM)
 add_custom_target(mincolor_panel ALL DEPENDS "${_panel_out}")
 
-# Dockable panels load from the per-user ScriptUI Panels folder (no admin rights).
-set(MINCOLOR_PANEL_DIR "$ENV{HOME}/Library/Preferences/Adobe/After Effects/26.5/Scripts/ScriptUI Panels"
-    CACHE PATH "Install directory for the ScriptUI panel")
+# Dockable panels load from the per-user ScriptUI Panels folder (no admin rights):
+# ~/Library/Preferences/... on macOS, %APPDATA%\Adobe\... on Windows.
+if(WIN32)
+  file(TO_CMAKE_PATH "$ENV{APPDATA}" _appdata)
+  file(TO_CMAKE_PATH "$ENV{USERPROFILE}" _home)
+  set(_panel_default "${_appdata}/Adobe/After Effects/26.5/Scripts/ScriptUI Panels")
+else()
+  set(_home "$ENV{HOME}")
+  set(_panel_default "${_home}/Library/Preferences/Adobe/After Effects/26.5/Scripts/ScriptUI Panels")
+endif()
+set(MINCOLOR_PANEL_DIR "${_panel_default}" CACHE PATH "Install directory for the ScriptUI panel")
 set(MINCOLOR_PANEL_NAME "minColor.jsx" CACHE STRING "Installed file name (the Window menu entry)")
 add_custom_target(install_panel
   COMMAND ${CMAKE_COMMAND} -E make_directory "${MINCOLOR_PANEL_DIR}"
@@ -44,7 +52,7 @@ add_custom_target(install_panel
 # minColor Output, mCagx_* minColor AgX, each the whole effect, all on working space ACEScg). AE lists the
 # user presets folder under Effects & Presets > Animation Presets; refresh the list
 # (or restart AE) after installing.
-set(MINCOLOR_PRESETS_DIR "$ENV{HOME}/Documents/Adobe/After Effects 2026/User Presets/minColor"
+set(MINCOLOR_PRESETS_DIR "${_home}/Documents/Adobe/After Effects 2026/User Presets/minColor"
     CACHE PATH "Install directory for the animation presets")
 file(GLOB _ffx CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/presets/ae/minColor/*.ffx")
 add_custom_target(install_presets
