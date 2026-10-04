@@ -30,10 +30,13 @@ OCIO. Depth 32 bpc.
    linear.
 2. Composite in the linear working space.
 3. View through the config: display **macOS (AE viewport fix)** on a Mac, **sRGB**
-   or **Rec.709 (BT.1886)** elsewhere, view **Un-tone-mapped**. Deliver through
+   or **Rec.709 (BT.1886)** elsewhere, view **Un-tone-mapped**. **macOS Video (AE
+   viewport fix)** shows a Rec.709 BT.1886 delivery as a Mac plays it (encoded 2.4,
+   decoded with the sRGB curve: lighter midtones, lifted shadows; grey 0.18 shows
+   at 0.486 instead of 0.459). Deliver through
    the Output Module's *Output Color Space* (ACEScg, ACES2065-1, the linear
-   spaces, sRGB, Rec.709 BT.1886). The macOS display is viewer-only; deliveries
-   never carry it.
+   spaces, sRGB, Rec.709 BT.1886). The macOS displays are viewer-only; deliveries
+   never carry them.
 4. **minColor Output** only for a rendered look: on an adjustment layer at the top
    (the panel's Add Output), Input Gamut = the working space, Display Encoding
    *None - Linear / Working Gamut*, Rendering OpenDRT. It hands back linear light

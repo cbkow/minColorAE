@@ -29,15 +29,17 @@ file_rules:
 displays:
   macOS (AE viewport fix):
     - !<View> {name: Un-tone-mapped, colorspace: macOS viewport}
+  macOS Video (AE viewport fix):
+    - !<View> {name: Un-tone-mapped, colorspace: macOS video viewport}
   sRGB:
     - !<View> {name: Un-tone-mapped, colorspace: sRGB}
   Rec.709 (BT.1886):
     - !<View> {name: Un-tone-mapped, colorspace: Rec.709 BT.1886}
 
-active_displays: [macOS (AE viewport fix), sRGB, Rec.709 (BT.1886)]
+active_displays: [macOS (AE viewport fix), macOS Video (AE viewport fix), sRGB, Rec.709 (BT.1886)]
 active_views: [Un-tone-mapped]
 # used by roles and views, kept out of AE's colour space menus
-inactive_colorspaces: [CIE-XYZ-D65, macOS viewport]
+inactive_colorspaces: [CIE-XYZ-D65, macOS viewport, macOS video viewport]
 
 colorspaces:
   - !<ColorSpace>
@@ -129,6 +131,21 @@ colorspaces:
       children:
         - !<ExponentTransform> {value: [2.2, 2.2, 2.2, 1], style: mirror}
         - !<MatrixTransform> {matrix: [0.4865709543, 0.2656677067, 0.1982172877, 0, 0.2289745659, 0.6917385459, 0.07928691059, 0, -3.999999935e-17, 0.045113381, 1.043944359, 0, 0, 0, 0, 1]}
+
+  - !<ColorSpace>
+    name: macOS video viewport
+    family: ""
+    bitdepth: 32f
+    description: "Viewer only: a Rec.709 BT.1886 delivery as a Mac plays it (encoded 2.4, decoded with the sRGB curve), in AE's Display P3 2.2 viewport. Never a delivery."
+    isdata: false
+    to_scene_reference: !<GroupTransform>
+      children:
+        - !<ExponentTransform> {value: [2.2, 2.2, 2.2, 1], style: mirror}
+        - !<MatrixTransform> {matrix: [0.4865709543, 0.2656677067, 0.1982172877, 0, 0.2289745659, 0.6917385459, 0.07928691059, 0, -3.999999935e-17, 0.045113381, 1.043944359, 0, 0, 0, 0, 1]}
+        - !<MatrixTransform> {matrix: [0.4123907983, 0.3575843275, 0.1804807931, 0, 0.212639004, 0.7151686549, 0.07219231874, 0, 0.01933081821, 0.1191947833, 0.9505321383, 0, 0, 0, 0, 1], direction: inverse}
+        - !<ExponentWithLinearTransform> {gamma: [2.4, 2.4, 2.4, 1], offset: [0.055, 0.055, 0.055, 0], style: mirror, direction: inverse}
+        - !<ExponentTransform> {value: [2.4, 2.4, 2.4, 1], style: mirror}
+        - !<MatrixTransform> {matrix: [0.4123907983, 0.3575843275, 0.1804807931, 0, 0.212639004, 0.7151686549, 0.07219231874, 0, 0.01933081821, 0.1191947833, 0.9505321383, 0, 0, 0, 0, 1]}
 
   - !<ColorSpace>
     name: Raw

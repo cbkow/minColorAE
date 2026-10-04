@@ -14,11 +14,15 @@
 //     P3-D65, Linear Rec.2020), also offered as Output Module deliveries;
 //   - two encoded spaces for delivery and viewing: sRGB (IEC 61966-2-1, the
 //     piecewise curve) and Rec.709 BT.1886 (2.4 power);
-//   - one view, "Un-tone-mapped", on three displays: sRGB, Rec.709 (BT.1886) and
-//     macOS (AE viewport fix). The macOS display is viewer-only and never a
-//     delivery: AE's viewport on macOS is Display P3 decoded as a 2.2 power, so
-//     that view sends linear P3-D65 encoded 2.2 (what mincolor-unmanaged.ocio
-//     and the minColor macOS Fix effect do to the Output's sRGB codes);
+//   - one view, "Un-tone-mapped", on four displays: macOS (AE viewport fix),
+//     macOS Video (AE viewport fix), sRGB and Rec.709 (BT.1886). The macOS displays
+//     are viewer-only and never deliveries: AE's viewport on macOS is Display P3
+//     decoded as a 2.2 power, so the macOS view sends linear P3-D65 encoded 2.2
+//     (what mincolor-unmanaged.ocio and the minColor macOS Fix effect do to the
+//     Output's sRGB codes). macOS Video shows a Rec.709 BT.1886 delivery as a Mac
+//     plays it: encoded 2.4, decoded with the sRGB curve (lighter midtones, lifted
+//     shadows), then the same P3 2.2 viewport encode. A display of its own, not a
+//     second view: AE lists only the first display's views;
 //   - no file rules beyond Default, and the default role is Raw (data), so AE
 //     never converts footage on import: minColor Input interprets media.
 // Display, view and colour space names are project state in AE (stored by name):
@@ -98,15 +102,17 @@ int main(int argc, char **argv)
         "displays:\n"
         "  macOS (AE viewport fix):\n"
         "    - !<View> {name: Un-tone-mapped, colorspace: macOS viewport}\n"
+        "  macOS Video (AE viewport fix):\n"
+        "    - !<View> {name: Un-tone-mapped, colorspace: macOS video viewport}\n"
         "  sRGB:\n"
         "    - !<View> {name: Un-tone-mapped, colorspace: sRGB}\n"
         "  Rec.709 (BT.1886):\n"
         "    - !<View> {name: Un-tone-mapped, colorspace: Rec.709 BT.1886}\n"
         "\n"
-        "active_displays: [macOS (AE viewport fix), sRGB, Rec.709 (BT.1886)]\n"
+        "active_displays: [macOS (AE viewport fix), macOS Video (AE viewport fix), sRGB, Rec.709 (BT.1886)]\n"
         "active_views: [Un-tone-mapped]\n"
         "# used by roles and views, kept out of AE's colour space menus\n"
-        "inactive_colorspaces: [CIE-XYZ-D65, macOS viewport]\n"
+        "inactive_colorspaces: [CIE-XYZ-D65, macOS viewport, macOS video viewport]\n"
         "\n"
         "colorspaces:\n");
 
@@ -136,6 +142,19 @@ int main(int argc, char **argv)
     std::fprintf(o, "    to_scene_reference: !<GroupTransform>\n      children:\n"
                     "        - !<ExponentTransform> {value: [2.2, 2.2, 2.2, 1], style: mirror}\n");
     matrix(o, "        ", p3d65, "");
+    std::fprintf(o, "\n");
+
+    /* to the reference, so the view's chain read backwards: viewport codes -> decode 2.2 ->
+       P3-D65 -> Rec.709 -> encode sRGB (the Mac player's decode, undone) -> decode 2.4
+       (BT.1886) -> Rec.709 -> XYZ */
+    header(o, "macOS video viewport", "Viewer only: a Rec.709 BT.1886 delivery as a Mac plays it (encoded 2.4, decoded with the sRGB curve), in AE's Display P3 2.2 viewport. Never a delivery.");
+    std::fprintf(o, "    to_scene_reference: !<GroupTransform>\n      children:\n"
+                    "        - !<ExponentTransform> {value: [2.2, 2.2, 2.2, 1], style: mirror}\n");
+    matrix(o, "        ", p3d65, "");
+    matrix(o, "        ", rec709, ", direction: inverse");
+    std::fprintf(o, "        - !<ExponentWithLinearTransform> {gamma: [2.4, 2.4, 2.4, 1], offset: [0.055, 0.055, 0.055, 0], style: mirror, direction: inverse}\n"
+                    "        - !<ExponentTransform> {value: [2.4, 2.4, 2.4, 1], style: mirror}\n");
+    matrix(o, "        ", rec709, "");
     std::fprintf(o, "\n");
 
     header(o, "Raw", "No transform. The default role: AE does not convert footage, minColor Input does.", true);
