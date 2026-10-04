@@ -11,6 +11,7 @@
  *
  * Exit code 0 = every case within tolerance. Prints the worst case per section.
  */
+#include <algorithm>
 #include <cstdio>
 #include <array>
 #include <cmath>
@@ -637,7 +638,9 @@ int main()
             if (std::fabs(lo.x - below) > 1e-6f * std::max(1.0f, below)) { std::printf("   knee moves %g (below its start) -> %g\n", below, lo.x); good = false; }
             if (std::fabs(hi.x * 100.0f - c[1]) > 0.01f * c[1]) { std::printf("   knee: source %g nits -> %g, want %g\n", c[0], hi.x * 100.0f, c[1]); good = false; }
         }
-        good = good && worst < 1e-5;
+        /* 5e-5: two PQ round trips in float; PQ's 78.84 exponent multiplies a one-ulp difference in
+           the base about 80-fold, and libm powf rounding differs by compiler (clang 7e-6, MSVC 1.6e-5) */
+        good = good && worst < 5e-5;
         std::printf("%-34s vs QCView Highlight Knee worst %.2e  %s\n", "knee", worst, good ? "" : "FAILED");
         ok = ok && good;
     }
