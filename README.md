@@ -79,7 +79,9 @@ video levels when it decodes; measured on 26.5), R3D and ARRIRAW as the camera l
 the importer is assumed to decode to. It adds the effect first in the stack where
 a layer has none, shows the changes before applying, applies them as one undo
 step, and reports every selected layer, including the ones it skipped and why.
-The rules use the Input's menu names; edit the file to change them.
+**In Rules…** edits those rules for the project in a table (extensions, and
+Gamut / Transfer / Range from the Input's own menus; add, remove, reorder, reset to
+the defaults) and saves `minColor/in.json`.
 
 ## License
 

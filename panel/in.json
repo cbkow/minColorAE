@@ -1,5 +1,5 @@
 {
-  "about": "minColor In presets. Apply In matches a footage layer's file extension against these rules, first match wins, and sets the minColor Input effect to the rule's gamut, transfer and range. Names are the Input effect's menu entries, spelled exactly. Edit freely; the panel reads this file on every Apply In.",
+  "about": "minColor In presets. Apply In matches a footage layer's file extension against these rules, first match wins, and sets the minColor Input effect to the rule's gamut, transfer and range. Names are the Input effect's menu entries, spelled exactly. Edit with the panel's In Rules, or by hand; the panel reads this file on every Apply In. Video is Full range because After Effects already expands video levels when it decodes. The raw rules assume After Effects' importer decodes R3D to REDWideGamutRGB / Log3G10 and ARRIRAW to the camera's LogC (AWG3 / LogC3 for .ari, AWG4 / LogC4 for .arx); change them if your importer settings differ.",
   "rules": [
     {
       "name": "OpenEXR",
@@ -12,29 +12,29 @@
       "gamut": "Rec.709", "transfer": "Linear", "range": "Full"
     },
     {
-      "name": "Stills and graphics (sRGB)",
+      "name": "Stills and graphics",
       "extensions": ["tif", "tiff", "jpg", "jpeg", "jpe", "png", "bmp", "gif", "tga", "targa", "webp",
                      "psd", "psb", "eps", "ai", "pdf", "svg", "heic", "heif", "avif", "ico"],
       "gamut": "Rec.709", "transfer": "sRGB", "range": "Full"
     },
     {
-      "name": "Video (Rec.709; AE already expands video levels on decode, so Full)",
+      "name": "Video",
       "extensions": ["mov", "mp4", "m4v", "mxf", "avi", "mkv", "webm", "mpg", "mpeg", "m2v", "m2ts", "mts",
                      "ts", "wmv", "flv", "3gp", "dv"],
       "gamut": "Rec.709", "transfer": "Rec.1886 (2.4 power)", "range": "Full"
     },
     {
-      "name": "RED raw (assumes the importer decodes to REDWideGamutRGB / Log3G10)",
+      "name": "RED raw",
       "extensions": ["r3d"],
       "gamut": "RED Wide Gamut RGB", "transfer": "RED Log3G10", "range": "Full"
     },
     {
-      "name": "ARRIRAW, ALEXA / Mini / LF (assumes the importer decodes to AWG3 / LogC3)",
+      "name": "ARRIRAW (ALEXA, Mini, LF)",
       "extensions": ["ari"],
       "gamut": "ARRI Wide Gamut 3", "transfer": "ARRI LogC3", "range": "Full"
     },
     {
-      "name": "ARRIRAW, ALEXA 35 (assumes the importer decodes to AWG4 / LogC4)",
+      "name": "ARRIRAW (ALEXA 35)",
       "extensions": ["arx"],
       "gamut": "ARRI Wide Gamut 4", "transfer": "ARRI LogC4", "range": "Full"
     }

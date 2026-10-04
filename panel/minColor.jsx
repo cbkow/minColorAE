@@ -239,6 +239,134 @@
     return out.concat(lines.slice(0, done), notes);
   }
 
+  // ---- In Rules dialog --------------------------------------------------------------
+  /* Edits minColor/in.json as a table: one row per rule, the Input's own menu entries
+     in the dropdowns, so a name can never be misspelt. Rows are rebuilt on add, remove
+     and reorder (ScriptUI has no grid); a radio button marks the row those act on.
+     Nothing is written until Save; Reset to defaults loads the starter rules into the
+     table. Fields of in.json the table does not show (e.g. "about") are kept. */
+  function jstr(v) { return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n") + '"'; }
+  function serializeRules(doc) {
+    var L = ["{"], keys = [];
+    for (var k in doc) if (doc.hasOwnProperty(k) && k !== "rules") keys.push(k);
+    for (var a = 0; a < keys.length; a++) L.push("  " + jstr(keys[a]) + ": " + jstr(doc[keys[a]]) + ",");
+    L.push('  "rules": [');
+    for (var i = 0; i < doc.rules.length; i++) {
+      var r = doc.rules[i], ex = [];
+      for (var j = 0; j < r.extensions.length; j++) ex.push(jstr(r.extensions[j]));
+      L.push("    {");
+      L.push('      "name": ' + jstr(r.name) + ",");
+      L.push('      "extensions": [' + ex.join(", ") + "],");
+      L.push('      "gamut": ' + jstr(r.gamut) + ', "transfer": ' + jstr(r.transfer) + ', "range": ' + jstr(r.range));
+      L.push("    }" + (i < doc.rules.length - 1 ? "," : ""));
+    }
+    L.push("  ]", "}", "");
+    return L.join("\n");
+  }
+  function splitExts(text) {
+    var parts = String(text).toLowerCase().split(/[\s,;]+/), out = [], seen = {};
+    for (var i = 0; i < parts.length; i++) { var e = parts[i].replace(/^\*?\./, ""); if (e && !seen[e]) { seen[e] = true; out.push(e); } }
+    return out;
+  }
+  /* Returns { doc, file, note } or { error }. */
+  function loadRulesDoc() {
+    var f = app.project.file;
+    if (!f) return { error: "Save the project first: the rules live in a minColor folder next to it." };
+    var jf = new File(f.parent.fsName + "/minColor/in.json"), note = "";
+    var doc = jf.exists ? parseJSON(readText(jf)) : null;
+    if (jf.exists && (!doc || !(doc.rules instanceof Array))) { doc = null; note = "minColor/in.json was not readable; showing the defaults (Save replaces it)."; }
+    if (!doc) doc = parseJSON(IN_JSON);
+    return { doc: doc, file: jf, note: note };
+  }
+  function editInRules() {
+    var out = [], L = loadRulesDoc();
+    if (L.error) { out.push(L.error + " Nothing changed."); return out; }
+    var doc = L.doc, rows = [];
+    function fromDoc(d) {
+      rows = [];
+      for (var i = 0; i < d.rules.length; i++) {
+        var r = d.rules[i];
+        rows.push({ name: String(r.name || ""), exts: (r.extensions instanceof Array ? r.extensions : []).join(" "),
+                    g: indexOf(IN_GAMUTS, r.gamut), t: indexOf(IN_TRANSFERS, r.transfer), r: indexOf(IN_RANGES, r.range || "Full") });
+      }
+    }
+    fromDoc(doc);
+    var sel = rows.length ? 0 : -1;
+
+    var dlg = new Window("dialog", "minColor In Rules", undefined, { resizeable: false });
+    dlg.orientation = "column"; dlg.alignChildren = ["fill", "top"]; dlg.margins = 14; dlg.spacing = 8;
+    var hint = dlg.add("statictext", undefined,
+      "Apply In uses the first rule whose extensions match a footage layer's file. Saved to minColor/in.json.", { multiline: true });
+    hint.preferredSize = [780, 18];
+    if (L.note) dlg.add("statictext", undefined, L.note);
+    var head = dlg.add("group"); head.spacing = 6;
+    var W = { pick: 20, name: 210, exts: 200, g: 150, t: 170, r: 110 };
+    function hcell(t, w) { var c = head.add("statictext", undefined, t); c.preferredSize = [w, 16]; }
+    hcell("", W.pick); hcell("Rule", W.name); hcell("Extensions", W.exts); hcell("Gamut", W.g); hcell("Transfer", W.t); hcell("Range", W.r);
+    var box = dlg.add("group"); box.orientation = "column"; box.alignChildren = ["fill", "top"]; box.spacing = 4;
+
+    function readRows() {   /* controls -> rows */
+      for (var i = 0; i < box.children.length; i++) {
+        var c = box.children[i].children, R = rows[i];
+        R.name = c[1].text; R.exts = c[2].text;
+        R.g = c[3].selection ? c[3].selection.index : -1; R.t = c[4].selection ? c[4].selection.index : -1; R.r = c[5].selection ? c[5].selection.index : -1;
+      }
+    }
+    function build() {   /* rows -> controls */
+      while (box.children.length) box.remove(box.children[0]);
+      for (var i = 0; i < rows.length; i++) {
+        var R = rows[i], g = box.add("group"); g.spacing = 6;
+        var rb = g.add("radiobutton"); rb.preferredSize = [W.pick, 20]; rb.value = (i === sel);
+        (function (k) { rb.onClick = function () { readRows(); sel = k; for (var q = 0; q < box.children.length; q++) box.children[q].children[0].value = (q === k); }; })(i);
+        var n = g.add("edittext", undefined, R.name); n.preferredSize = [W.name, 22];
+        var e = g.add("edittext", undefined, R.exts); e.preferredSize = [W.exts, 22]; e.helpTip = "Space- or comma-separated, no dots: exr sxr";
+        var dg = g.add("dropdownlist", undefined, IN_GAMUTS); dg.preferredSize = [W.g, 22]; if (R.g >= 0) dg.selection = R.g;
+        var dt = g.add("dropdownlist", undefined, IN_TRANSFERS); dt.preferredSize = [W.t, 22]; if (R.t >= 0) dt.selection = R.t;
+        var dr = g.add("dropdownlist", undefined, IN_RANGES); dr.preferredSize = [W.r, 22]; if (R.r >= 0) dr.selection = R.r;
+      }
+      dlg.layout.layout(true);
+    }
+    var bar = dlg.add("group"); bar.orientation = "row"; bar.alignment = ["fill", "bottom"];
+    var left = bar.add("group"), right = bar.add("group"); right.alignment = ["right", "center"];
+    var bAddR = left.add("button", undefined, "+ Add"), bDel = left.add("button", undefined, "\u2212 Remove"),
+        bUp = left.add("button", undefined, "\u25B2"), bDn = left.add("button", undefined, "\u25BC");
+    bUp.preferredSize = bDn.preferredSize = [36, 24];
+    var bReset = right.add("button", undefined, "Reset to defaults"), bCancel = right.add("button", undefined, "Cancel", { name: "cancel" }),
+        bSave = right.add("button", undefined, "Save", { name: "ok" });
+    bAddR.onClick = function () { readRows(); rows.push({ name: "New rule", exts: "", g: indexOf(IN_GAMUTS, "Rec.709"), t: indexOf(IN_TRANSFERS, "sRGB"), r: 0 }); sel = rows.length - 1; build(); };
+    bDel.onClick = function () { readRows(); if (sel < 0) return; rows.splice(sel, 1); sel = Math.min(sel, rows.length - 1); build(); };
+    bUp.onClick = function () { readRows(); if (sel <= 0) return; var t = rows[sel - 1]; rows[sel - 1] = rows[sel]; rows[sel] = t; sel--; build(); };
+    bDn.onClick = function () { readRows(); if (sel < 0 || sel >= rows.length - 1) return; var t = rows[sel + 1]; rows[sel + 1] = rows[sel]; rows[sel] = t; sel++; build(); };
+    bReset.onClick = function () { fromDoc(parseJSON(IN_JSON)); sel = rows.length ? 0 : -1; build(); };
+    var result = null;
+    bSave.onClick = function () {
+      readRows();
+      var rules = [], problems = [];
+      for (var i = 0; i < rows.length; i++) {
+        var R = rows[i], ex = splitExts(R.exts), label = R.name || ("rule " + (i + 1));
+        if (!ex.length) problems.push(label + ": no extensions");
+        if (R.g < 0 || R.t < 0 || R.r < 0) problems.push(label + ": pick a gamut, transfer and range");
+        rules.push({ name: R.name || ("Rule " + (i + 1)), extensions: ex, gamut: IN_GAMUTS[R.g], transfer: IN_TRANSFERS[R.t], range: IN_RANGES[R.r] });
+      }
+      if (problems.length) { alert("Not saved:\n" + problems.join("\n")); return; }
+      doc.rules = rules; result = doc; dlg.close(1);
+    };
+    build();
+    if ($.global.__minColorAETestDialog) { $.global.__minColorAETestDialog(dlg, { box: box, add: bAddR, del: bDel, up: bUp, down: bDn, reset: bReset, save: bSave }); }   /* unattended tests drive the controls */
+    else dlg.show();
+    if (!result) { out.push("In Rules: closed without saving."); return out; }
+    var dir = L.file.parent;
+    if (!dir.exists && !dir.create()) { out.push("Could not create " + dir.fsName + "; rules not saved."); return out; }
+    if (!writeText(L.file, serializeRules(result))) { out.push("Could not write " + L.file.fsName + "; rules not saved."); return out; }
+    out.push("Saved " + result.rules.length + " rule" + (result.rules.length === 1 ? "" : "s") + " to minColor/in.json.");
+    var dup = {}, dups = [];
+    for (var a = 0; a < result.rules.length; a++) for (var b = 0; b < result.rules[a].extensions.length; b++) {
+      var x = result.rules[a].extensions[b]; if (dup[x] && indexOf(dups, x) < 0) dups.push(x); dup[x] = true;
+    }
+    if (dups.length) out.push("Note: ." + dups.join(", .") + (dups.length === 1 ? " is" : " are") + " in more than one rule; the first one wins.");
+    return out;
+  }
+
   // ---- layers ------------------------------------------------------------------------
   function hasEffect(layer, matchName) {
     var parade;
@@ -328,6 +456,8 @@
   var bIn = flatButton(win, "Apply In", { primary: true,
     tip: "Sets minColor Input on the selected footage layers from minColor/in.json, by file extension\n" +
          "(adds the effect first in the stack where missing). Shows the changes before applying." });
+  var bRules = flatButton(win, "In Rules\u2026", {
+    tip: "Edit this project's In rules (minColor/in.json): which Input settings each file extension gets" });
   var bAdd = flatButton(win, "Add Output", { primary: true,
     tip: "Adjustment layer with minColor Output at the top of the active comp (under a macOS Fix layer if there is one)" });
   var bShim = flatButton(win, "Fix OCIO", {
@@ -348,10 +478,11 @@
     try { win.update(); } catch (e) {}
   }
   bIn.onClick = function () { this.active = false; run(applyIn); };
+  bRules.onClick = function () { this.active = false; run(editInRules); };
   bAdd.onClick = function () { this.active = false; run(addOutput); };   /* active=false: ScriptUI keeps a pressed look otherwise */
   bShim.onClick = function () { this.active = false; run(fixOCIO); };
 
-  win.__mc = { applyIn: bIn, addOutput: bAdd, fixOCIO: bShim, report: report };   /* for unattended tests */
+  win.__mc = { applyIn: bIn, inRules: bRules, addOutput: bAdd, fixOCIO: bShim, report: report };   /* for unattended tests */
   win.layout.layout(true);
   win.onResizing = win.onResize = function () { try { this.layout.resize(); } catch (e) {} };
   if (win instanceof Window) { win.center(); win.show(); }
