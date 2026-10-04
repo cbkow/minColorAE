@@ -1,0 +1,32 @@
+minColorAE
+Copyright (C) 2026 cbkow
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License version 3 as published by the Free
+Software Foundation (GPL-3.0-only). See LICENSE for the full text.
+
+-------------------------------------------------------------------------------
+Derived work: OpenDRT
+-------------------------------------------------------------------------------
+
+The rendering in this program is derived from OpenDRT v1.1.0
+  Written by Jed Smith
+  https://github.com/jedypod/open-display-transform
+  License: GPLv3
+
+The unmodified upstream file is kept at upstream/OpenDRT_v1.1.0.dctl.
+
+This program modifies OpenDRT and adds to it (see CHANGES-FROM-OPENDRT.md for
+the list, with dates). minColorAE is not OpenDRT, is not affiliated with the
+OpenDRT project or its author, and is not endorsed by them. "OpenDRT" is used
+here only to credit the origin of the rendering algorithm.
+
+-------------------------------------------------------------------------------
+Not included: the Adobe After Effects SDK
+-------------------------------------------------------------------------------
+
+Building the After Effects plug-ins needs Adobe's After Effects SDK, which is
+proprietary, obtained separately from Adobe, and never part of this repository.
+Its terms are Adobe's. Combining GPL-3.0 code with that SDK for distribution
+is an open question this project has not yet resolved; resolve it before
+distributing binaries outside the author's own use.

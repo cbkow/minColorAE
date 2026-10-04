@@ -1,0 +1,28 @@
+# build output
+build/
+build-*/
+*.air
+compile_commands.json
+
+# private material (the AE SDK, client media)
+private/
+
+# tooling: Claude Code (worktrees, local settings), clangd, editors
+.claude/
+.cache/
+.vscode/
+.idea/
+*.xcuserstate
+xcuserdata/
+*.swp
+*~
+
+# Python scratch (PyOpenColorIO checks, venvs)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# macOS
+.DS_Store
+._*

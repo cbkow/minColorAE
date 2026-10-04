@@ -1,0 +1,73 @@
+ocio_profile_version: 2
+
+# SPDX-License-Identifier: GPL-3.0-only
+# minColorAE. Copyright (C) 2026 cbkow. Part of a work derived from OpenDRT v1.1.0 by Jed Smith (GPLv3); see NOTICE.
+
+# minColor VIEWPORT SHIM — a deliberate hack, not a colour pipeline.
+#
+# Pin this in After Effects (Project Settings > Color, OCIO) only to fix how AE's
+# viewport shows colour on macOS. It describes nothing about the scene: the working
+# space is a label, every role points at it, and AE is assumed to pass pixels through
+# untouched. All real colour is done by the minColor effects.
+#
+# Contract: the minColor Output's View encoding is "sRGB Display - 2.2 Power / Rec.709".
+#   macOS (AE viewport fix): those codes re-encoded for AE's Display P3 viewport
+#                            (decode 2.2, Rec.709 -> P3-D65 primaries, encode 2.2);
+#                            the same thing a studio's P3 2.2 house display does to a 709 picture.
+#   Windows (passthrough):   the codes go to the screen as they are.
+# Viewer transforms never render: the Render Queue gets the Output's pixels unchanged.
+
+name: mincolor-viewport-shim
+strictparsing: false
+
+roles:
+  reference: minColor Output
+  scene_linear: minColor Output
+  rendering: minColor Output
+  default: minColor Output
+  default_byte: minColor Output
+  default_float: minColor Output
+  color_picking: minColor Output
+  compositing_log: minColor Output
+  color_timing: minColor Output
+  matte_paint: minColor Output
+  texture_paint: minColor Output
+  data: Raw
+
+displays:
+  macOS (AE viewport fix):
+    - !<View> {name: minColor, colorspace: macOS viewport}
+  Windows (passthrough):
+    - !<View> {name: minColor, colorspace: Raw}
+
+active_displays: [macOS (AE viewport fix), Windows (passthrough)]
+active_views: [minColor]
+# the views still use these; hidden so "minColor Output" is the only working space AE offers
+inactive_colorspaces: [Raw, macOS viewport]
+
+colorspaces:
+  - !<ColorSpace>
+    name: minColor Output
+    family: ""
+    bitdepth: 32f
+    description: A label only. Whatever the minColor effects produce; AE does nothing to it.
+    isdata: false
+
+  - !<ColorSpace>
+    name: Raw
+    family: ""
+    bitdepth: 32f
+    description: No transform.
+    isdata: true
+
+  - !<ColorSpace>
+    name: macOS viewport
+    family: ""
+    bitdepth: 32f
+    description: sRGB Display (2.2 Rec.709) codes re-encoded for AE's Display P3 viewport on macOS.
+    isdata: false
+    from_scene_reference: !<GroupTransform>
+      children:
+        - !<ExponentTransform> {value: 2.2}
+        - !<MatrixTransform> {matrix: [0.8224619687, 0.1775380313, 0, 0, 0.0331941989, 0.9668058011, 0, 0, 0.0170826307, 0.0723974407, 0.9105199286, 0, 0, 0, 0, 1]}
+        - !<ExponentTransform> {value: 2.2, direction: inverse}
