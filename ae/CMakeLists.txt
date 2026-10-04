@@ -3,11 +3,13 @@
 # After Effects plugins. Needs the Adobe After Effects SDK, which is Adobe's,
 # proprietary, obtained separately, and never enters this repo: point
 # MINCOLOR_AE_SDK at it, or drop a symlink at private/sdk/AfterEffectsSDK
-# (private/ is gitignored).
+# (private/ is gitignored; a directory junction on Windows).
 #
-# Bundle mechanics: Rez the PiPL, copy the .rsrc into the bundle, THEN codesign,
-# all on relink; copying after the linker seals the bundle ships an invalid
-# signature and AE loads nothing, silently.
+# macOS: .plugin bundles, Metal. Bundle mechanics: Rez the PiPL, copy the .rsrc
+# into the bundle, THEN codesign, all on relink; copying after the linker seals
+# the bundle ships an invalid signature and AE loads nothing, silently.
+# Windows: .aex DLLs, the PiPL through Adobe's PiPLtool into a .rc; the GPU
+# backend is CUDA when the toolkit is found, else none (CPU only).
 
 set(MINCOLOR_AE_SDK "" CACHE PATH "After Effects SDK root (contains Examples/Headers/AE_Effect.h)")
 if(NOT MINCOLOR_AE_SDK)
@@ -20,10 +22,6 @@ if(NOT MINCOLOR_AE_SDK)
   endforeach()
 endif()
 
-if(NOT APPLE)
-  message(STATUS "ae/: only the macOS build exists so far; skipped")
-  return()
-endif()
 if(NOT EXISTS "${MINCOLOR_AE_SDK}/Examples/Headers/AE_Effect.h")
   message(STATUS "ae/: After Effects SDK not found (set MINCOLOR_AE_SDK); skipped")
   return()
@@ -33,6 +31,10 @@ message(STATUS "ae/: After Effects SDK at ${MINCOLOR_AE_SDK}")
 set(_ae_h "${MINCOLOR_AE_SDK}/Examples/Headers")
 set(_ae_u "${MINCOLOR_AE_SDK}/Examples/Util")
 set(_core "${CMAKE_SOURCE_DIR}/core")
+set(_gen "${CMAKE_CURRENT_BINARY_DIR}/gen")
+file(MAKE_DIRECTORY "${_gen}")
+
+if(APPLE)
 find_program(REZ_TOOL Rez REQUIRED)
 
 set(DRT_CODESIGN_IDENTITY "-" CACHE STRING "codesign identity for the AE bundles (- = ad-hoc)")
@@ -45,9 +47,6 @@ endif()
 # Where AE (and Premiere) load from without admin rights; group-admin writable.
 set(DRT_AE_PLUGIN_DIR "/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/minColor"
     CACHE PATH "Install directory for the AE bundles")
-
-set(_gen "${CMAKE_CURRENT_BINARY_DIR}/gen")
-file(MAKE_DIRECTORY "${_gen}")
 
 # ---- shared: turn a MODULE target into an AE effect bundle ------------------
 function(drt_ae_effect_bundle name outname pipl plist)
@@ -113,10 +112,11 @@ add_custom_command(OUTPUT "${_gen}/drt_ae_msl.h"
   DEPENDS ${_msl_parts} cmake/embed_text.cmake
   COMMENT "Embed the Metal source (core + AE kernels)" VERBATIM)
 
-# ---- the effects ---------------------------------------------------------
+# ---- the effects ---------------------------------------------------------------
 function(drt_ae_effect name role outname subdir pipl)
   add_library(${name} MODULE
-    common/drt_ae_effect.mm
+    common/drt_ae_effect.cpp
+    common/drt_ae_gpu_metal.mm
     "${_gen}/drt_ae_msl.h"
     "${_ae_u}/AEFX_SuiteHelper.c"
     "${_ae_u}/Smart_Utils.cpp")
@@ -124,11 +124,52 @@ function(drt_ae_effect name role outname subdir pipl)
   target_include_directories(${name} PRIVATE "${_gen}" common)
   target_link_libraries(${name} PRIVATE drt_core)
   # The SDK samples use manual retain/release around Metal; stay off ARC like they do.
-  set_source_files_properties(common/drt_ae_effect.mm PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
+  set_source_files_properties(common/drt_ae_gpu_metal.mm PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
   drt_ae_effect_bundle(${name} "${outname}"
     "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/${pipl}"
     "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/Info.plist.in")
 endfunction()
+
+else() # ---------------------------------------------------------------- Windows
+
+# Program Files: the session building and installing must be elevated.
+set(DRT_AE_PLUGIN_DIR "C:/Program Files/Adobe/Common/Plug-ins/7.0/MediaCore/minColor"
+    CACHE PATH "Install directory for the AE plug-ins")
+find_program(PIPL_TOOL PiPLtool PATHS "${MINCOLOR_AE_SDK}/Examples/Resources" NO_DEFAULT_PATH REQUIRED)
+
+set(_gpu_src common/drt_ae_gpu_none.cpp)
+message(STATUS "ae/: no GPU backend on Windows yet; the effects render on the CPU")
+
+function(drt_ae_effect name role outname subdir pipl)
+  # PiPL: preprocess the .r, PiPLtool it, preprocess again into a .rc (the SDK samples' custom step)
+  set(_rc "${_gen}/${name}_pipl.rc")
+  add_custom_command(OUTPUT "${_rc}"
+    COMMAND ${CMAKE_COMMAND} -DCL=${CMAKE_C_COMPILER} -DPIPLTOOL=${PIPL_TOOL}
+            -DIN=${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/${pipl} -DOUT=${_rc} -DWORK=${_gen}/${name}_pipl
+            "-DINC=${_ae_h}|${_ae_u}|${MINCOLOR_AE_SDK}/Examples/Resources"
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/pipl_win.cmake
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/${pipl}" cmake/pipl_win.cmake
+    COMMENT "PiPL (${outname})" VERBATIM)
+  add_library(${name} MODULE
+    common/drt_ae_effect.cpp
+    ${_gpu_src}
+    "${_rc}"
+    "${_ae_u}/AEFX_SuiteHelper.c"
+    "${_ae_u}/Smart_Utils.cpp")
+  target_compile_definitions(${name} PRIVATE ${role}=1 MSWindows WIN32 _WINDOWS NOMINMAX)
+  target_include_directories(${name} PRIVATE "${_gen}" common "${_ae_h}" "${_ae_h}/SP" "${_ae_u}" "${MINCOLOR_AE_SDK}/Examples/Resources")
+  target_link_libraries(${name} PRIVATE drt_core)
+  target_compile_options(${name} PRIVATE /W3 /wd4100 /wd4244 /wd4996)   # Adobe's headers and utils are not ours to make warning-clean
+  set_target_properties(${name} PROPERTIES OUTPUT_NAME "${outname}" PREFIX "" SUFFIX ".aex")
+  add_custom_target(install_${name}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${DRT_AE_PLUGIN_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${name}>" "${DRT_AE_PLUGIN_DIR}/"
+    COMMAND ${CMAKE_COMMAND} -E echo "installed ${DRT_AE_PLUGIN_DIR}/${outname}.aex"
+    DEPENDS ${name}
+    COMMENT "Install ${outname}.aex into MediaCore" VERBATIM)
+endfunction()
+
+endif()
 
 drt_ae_effect(mincolor_output DRT_ROLE_OUTPUT "minColor Output" output minColor_Output_PiPL.r)
 drt_ae_effect(mincolor_input  DRT_ROLE_INPUT  "minColor Input"  input  minColor_Input_PiPL.r)

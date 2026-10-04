@@ -8,13 +8,14 @@
  * drt_input_transform). Everything else is shared: the parameter table drives the
  * UI, the read into DrtParams and the preset write-back; the CPU path is the C++
  * twin through AE's iterate suites; the Metal path is the embedded shim + params +
- * kernel + wrapper compiled once per device.
+ * kernel + wrapper compiled once per device (drt_ae_gpu_metal.mm; CUDA on Windows,
+ * drt_ae_gpu_cuda.cpp; see drt_ae_common.h).
  *
  * fnord-shaped on purpose: the effect declares its own input on its popups,
  * transforms whatever pixels reach it, and never asks AE what the layer or the
  * project is. See ae/README.md for the comp discipline around it.
  */
-#include "drt_ae_params.h"
+#include "drt_ae_common.h"
 #if DRT_ROLE_GRADE
 #include "drt_ae_wheels.h"
 #endif
@@ -30,35 +31,43 @@
 #include "Param_Utils.h"
 #include "Smart_Utils.h"
 
-#import <Foundation/Foundation.h>
-#import <Metal/Metal.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 
-#include "drt_ae_msl.h" /* generated: kDrtAeMsl = prefix + shim + params + kernel + wrapper */
-
+#include <cstdarg>
 #include <cstdio>
 #include <mutex>
 #include <sys/stat.h>
 
-/* Development switches, read once per process:
- *   touch /tmp/mincolor_ae.log    -> every command and its result is appended there
- *   touch /tmp/mincolor_ae_nogpu  -> the effect never offers the GPU path (CPU only)
- * Both are file-existence checks so they work inside AE without env vars. */
+namespace drtae {
+
 namespace {
-bool fileExists(const char *p) { struct stat st; return ::stat(p, &st) == 0; }
-bool debugLogOn()  { static const bool on = fileExists("/tmp/mincolor_ae.log"); return on; }
-bool gpuDisabled() { static const bool off = fileExists("/tmp/mincolor_ae_nogpu"); return off; }
+/* /tmp/<name> on macOS, %TEMP%\<name> on Windows */
+std::string devPath(const char *name)
+{
+#ifdef AE_OS_WIN
+    const char *t = std::getenv("TEMP");
+    return std::string(t ? t : "C:\\Windows\\Temp") + "\\" + name;
+#else
+    return std::string("/tmp/") + name;
+#endif
+}
+bool fileExists(const std::string &p) { struct stat st; return ::stat(p.c_str(), &st) == 0; }
+const std::string &logPath() { static const std::string p = devPath("mincolor_ae.log"); return p; }
+bool debugLogOn() { static const bool on = fileExists(logPath()); return on; }
+} // namespace
+
+bool gpuDisabled() { static const bool off = fileExists(devPath("mincolor_ae_nogpu")); return off; }
+
 void dlog(const char *fmt, ...)
 {
     if (!debugLogOn()) return;
     static std::mutex m;
     std::lock_guard<std::mutex> lock(m);
-    FILE *f = std::fopen("/tmp/mincolor_ae.log", "a");
+    FILE *f = std::fopen(logPath().c_str(), "a");
     if (!f) return;
     va_list ap;
     va_start(ap, fmt);
@@ -67,60 +76,10 @@ void dlog(const char *fmt, ...)
     std::fputc('\n', f);
     std::fclose(f);
 }
-} // namespace
 
-#if DRT_ROLE_OUTPUT
-#define DRT_EFFECT_NAME  "minColor Output"
-#define DRT_MATCH_NAME   "ski.bialkow minColor Output"
-#define DRT_KERNEL_NAME  "drt_output_kernel"
-#define DRT_ROWS         drtae::kOutputRows
-#define DRT_ROW_COUNT    drtae::kOutputRowCount
-#define DRT_APPLY(p, v)  drt::drt_transform((p).d, (v))
-#elif DRT_ROLE_INPUT
-#define DRT_EFFECT_NAME  "minColor Input"
-#define DRT_MATCH_NAME   "ski.bialkow minColor Input"
-#define DRT_KERNEL_NAME  "drt_input_kernel"
-#define DRT_ROWS         drtae::kInputRows
-#define DRT_ROW_COUNT    drtae::kInputRowCount
-#define DRT_APPLY(p, v)  drt::drt_input_transform((p).d, (v))
-#elif DRT_ROLE_GRADE
-#define DRT_EFFECT_NAME  "minColor Grade"
-#define DRT_MATCH_NAME   "ski.bialkow minColor Grade"
-#define DRT_KERNEL_NAME  "drt_grade_kernel"
-#define DRT_ROWS         drtae::kGradeRows
-#define DRT_ROW_COUNT    drtae::kGradeRowCount
-#define DRT_APPLY(p, v)  drt::drt_grade((p).g, (p).d, (v))
-#elif DRT_ROLE_MACFIX
-#define DRT_EFFECT_NAME  "minColor macOS Fix"
-#define DRT_MATCH_NAME   "ski.bialkow minColor macOS Fix"
-#define DRT_KERNEL_NAME  "drt_macfix_kernel"
-#define DRT_ROWS         drtae::kMacFixRows
-#define DRT_ROW_COUNT    drtae::kMacFixRowCount
-#define DRT_APPLY(p, v)  drt::drt_macos_fix(v)
-#elif DRT_ROLE_KNEE
-#define DRT_EFFECT_NAME  "minColor Knee"
-#define DRT_MATCH_NAME   "ski.bialkow minColor Knee"
-#define DRT_KERNEL_NAME  "drt_knee_kernel"
-#define DRT_ROWS         drtae::kKneeRows
-#define DRT_ROW_COUNT    drtae::kKneeRowCount
-#define DRT_APPLY(p, v)  drt::drt_knee((p).d, (v))
-#elif DRT_ROLE_AGX
-#define DRT_EFFECT_NAME  "minColor AgX"
-#define DRT_MATCH_NAME   "ski.bialkow minColor AgX"
-#define DRT_KERNEL_NAME  "drt_agx_kernel"
-#define DRT_ROWS         drtae::kAgxRows
-#define DRT_ROW_COUNT    drtae::kAgxRowCount
-#define DRT_APPLY(p, v)  drt::drt_agx((p).a, (v))
-#else
-#error define DRT_ROLE_OUTPUT, DRT_ROLE_INPUT, DRT_ROLE_GRADE, DRT_ROLE_MACFIX, DRT_ROLE_KNEE or DRT_ROLE_AGX
-#endif
+} // namespace drtae
 
-/* What pre-render hands to render: the DRT block, and for Grade and AgX their own blocks too. */
-struct DrtRender {
-    drt::DrtParams      d;
-    drt::DrtGradeParams g;
-    drt::DrtAgxParams   a;
-};
+using drtae::dlog;
 
 /* Bump the minor version with every parameter-table change (see drt_ae_params.h)
    and mirror it in the PiPLs' AE_Effect_Version: PF_VERSION(major, minor, 0, DEVELOP, 1). */
@@ -384,6 +343,8 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
             def.flags = PF_ParamFlag_SUPERVISE;
             PF_ADD_COLOR(r.name, 128, 128, 128, id);
             break;
+        case drtae::kPresetRender:   /* retired, no row */
+            break;
         case drtae::kWheels:
 #if DRT_ROLE_GRADE
             /* a data-less row that owns a rectangle in the Effect Controls panel; we paint it and take its events */
@@ -409,8 +370,8 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
     return PF_Err_NONE;
 }
 
-/* Read every bound row into a DrtRender and derive it the way PreRender does. */
-DrtRender liveParams(PF_ParamDef *params[])
+/* Read every bound row into a DrtRender and derive it the way PreRender does (the Grade's eyedroppers). */
+[[maybe_unused]] DrtRender liveParams(PF_ParamDef *params[])
 {
     DrtRender x = effectDefaults();
     for (int k = 0; k < DRT_ROW_COUNT; ++k) rowFromDef(DRT_ROWS[k], *params[paramIndex(k)], x);
@@ -693,7 +654,9 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
     PF_RenderRequest req = extra->input->output_request;
     PF_CheckoutResult in_result;
 
-    if (!gpuDisabled()) extra->output->flags |= PF_RenderOutputFlag_GPU_RENDER_POSSIBLE;
+    /* the GPU only when AE's framework for this frame is the one our backend renders with */
+    if (!drtae::gpuDisabled() && drtae::gpuFramework() != PF_GPU_Framework_NONE && extra->input->what_gpu == drtae::gpuFramework())
+        extra->output->flags |= PF_RenderOutputFlag_GPU_RENDER_POSSIBLE;
 
     DrtRender *p = static_cast<DrtRender *>(std::malloc(sizeof(DrtRender)));
     if (!p) return PF_Err_OUT_OF_MEMORY;
@@ -813,121 +776,6 @@ PF_Err RenderCPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
     }
 }
 
-/* ------------------------------------------------------------ Metal render */
-
-struct DrtAeHeader {
-    int srcPitch;
-    int dstPitch;
-    int width;
-    int height;
-};
-
-struct MetalGPUData {
-    id<MTLComputePipelineState> pipeline;
-};
-
-PF_Err GPUDeviceSetup(PF_InData *in_data, PF_OutData *out_data, PF_GPUDeviceSetupExtra *extra)
-{
-    if (extra->input->what_gpu != PF_GPU_Framework_METAL) return PF_Err_NONE; /* CPU fallback */
-    @autoreleasepool {
-        AEFX_SuiteScoper<PF_HandleSuite1> handles(in_data, kPFHandleSuite, kPFHandleSuiteVersion1, out_data);
-        AEFX_SuiteScoper<PF_GPUDeviceSuite1> gpu(in_data, kPFGPUDeviceSuite, kPFGPUDeviceSuiteVersion1, out_data);
-        PF_GPUDeviceInfo dev;
-        AEFX_CLR_STRUCT(dev);
-        gpu->GetDeviceInfo(in_data->effect_ref, extra->input->device_index, &dev);
-        id<MTLDevice> device = (id<MTLDevice>)dev.devicePV;
-
-        NSError *error = nil;
-        MTLCompileOptions *opts = [[[MTLCompileOptions alloc] init] autorelease];
-        opts.fastMathEnabled = NO; /* the core is verified against the DCTL; keep the floats honest */
-        id<MTLLibrary> lib = [[device newLibraryWithSource:[NSString stringWithUTF8String:kDrtAeMsl]
-                                                   options:opts error:&error] autorelease];
-        if (!lib) {
-            dlog("Metal compile failed: %s", error ? [[error localizedDescription] UTF8String] : "?");
-            return PF_Err_INTERNAL_STRUCT_DAMAGED;
-        }
-        id<MTLFunction> fn = [[lib newFunctionWithName:@DRT_KERNEL_NAME] autorelease];
-        if (!fn) { dlog("kernel %s not found", DRT_KERNEL_NAME); return PF_Err_INTERNAL_STRUCT_DAMAGED; }
-        id<MTLComputePipelineState> pso = [device newComputePipelineStateWithFunction:fn error:&error];
-        if (!pso) {
-            dlog("pipeline failed: %s", error ? [[error localizedDescription] UTF8String] : "?");
-            return PF_Err_INTERNAL_STRUCT_DAMAGED;
-        }
-        dlog("Metal pipeline ready on %s", [[device name] UTF8String]);
-
-        PF_Handle h = handles->host_new_handle(sizeof(MetalGPUData));
-        reinterpret_cast<MetalGPUData *>(*h)->pipeline = pso;
-        extra->output->gpu_data = h;
-        out_data->out_flags2 = PF_OutFlag2_SUPPORTS_GPU_RENDER_F32;
-    }
-    return PF_Err_NONE;
-}
-
-PF_Err GPUDeviceSetdown(PF_InData *in_data, PF_OutData *out_data, PF_GPUDeviceSetdownExtra *extra)
-{
-    if (extra->input->what_gpu == PF_GPU_Framework_METAL && extra->input->gpu_data) {
-        PF_Handle h = (PF_Handle)extra->input->gpu_data;
-        [reinterpret_cast<MetalGPUData *>(*h)->pipeline release];
-        AEFX_SuiteScoper<PF_HandleSuite1> handles(in_data, kPFHandleSuite, kPFHandleSuiteVersion1, out_data);
-        handles->host_dispose_handle(h);
-    }
-    return PF_Err_NONE;
-}
-
-PF_Err RenderGPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
-                 PF_EffectWorld *in, PF_EffectWorld *out, PF_SmartRenderExtra *extra, const DrtRender *p)
-{
-    PF_Err err = PF_Err_NONE;
-    if (fmt != PF_PixelFormat_GPU_BGRA128 || extra->input->what_gpu != PF_GPU_Framework_METAL)
-        return PF_Err_UNRECOGNIZED_PARAM_TYPE;
-    /* No pipeline (device setup failed or was skipped): refuse rather than dereference. */
-    if (!extra->input->gpu_data || !*(PF_Handle)extra->input->gpu_data) return PF_Err_UNRECOGNIZED_PARAM_TYPE;
-
-    @autoreleasepool {
-        AEFX_SuiteScoper<PF_GPUDeviceSuite1> gpu(in_data, kPFGPUDeviceSuite, kPFGPUDeviceSuiteVersion1, out_data);
-        PF_GPUDeviceInfo dev;
-        AEFX_CLR_STRUCT(dev);
-        ERR(gpu->GetDeviceInfo(in_data->effect_ref, extra->input->device_index, &dev));
-        void *srcMem = nullptr, *dstMem = nullptr;
-        ERR(gpu->GetGPUWorldData(in_data->effect_ref, in, &srcMem));
-        ERR(gpu->GetGPUWorldData(in_data->effect_ref, out, &dstMem));
-        if (err) return err;
-
-        MetalGPUData *md = reinterpret_cast<MetalGPUData *>(*(PF_Handle)extra->input->gpu_data);
-        id<MTLDevice> device = (id<MTLDevice>)dev.devicePV;
-        id<MTLCommandQueue> queue = (id<MTLCommandQueue>)dev.command_queuePV;
-
-        DrtAeHeader h;
-        h.srcPitch = in->rowbytes / 16;
-        h.dstPitch = out->rowbytes / 16;
-        h.width = in->width;
-        h.height = in->height;
-        id<MTLBuffer> pbuf = [[device newBufferWithBytes:&p->d length:sizeof(drt::DrtParams) options:MTLResourceStorageModeShared] autorelease];
-        id<MTLBuffer> hbuf = [[device newBufferWithBytes:&h length:sizeof h options:MTLResourceStorageModeShared] autorelease];
-#if DRT_ROLE_AGX
-        id<MTLBuffer> gbuf = [[device newBufferWithBytes:&p->a length:sizeof(drt::DrtAgxParams) options:MTLResourceStorageModeShared] autorelease];   /* the AgX block at buffer(4) */
-#else
-        id<MTLBuffer> gbuf = [[device newBufferWithBytes:&p->g length:sizeof(drt::DrtGradeParams) options:MTLResourceStorageModeShared] autorelease];
-#endif
-
-        id<MTLCommandBuffer> cb = [queue commandBuffer];
-        id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
-        [enc setComputePipelineState:md->pipeline];
-        [enc setBuffer:(id<MTLBuffer>)srcMem offset:0 atIndex:0];
-        [enc setBuffer:(id<MTLBuffer>)dstMem offset:0 atIndex:1];
-        [enc setBuffer:pbuf offset:0 atIndex:2];
-        [enc setBuffer:hbuf offset:0 atIndex:3];
-        [enc setBuffer:gbuf offset:0 atIndex:4];
-        const NSUInteger tw = [md->pipeline threadExecutionWidth];
-        [enc dispatchThreadgroups:MTLSizeMake((in->width + tw - 1) / tw, (in->height + 15) / 16, 1)
-            threadsPerThreadgroup:MTLSizeMake(tw, 16, 1)];
-        [enc endEncoding];
-        [cb commit];
-        if ([cb error]) err = PF_Err_INTERNAL_STRUCT_DAMAGED;
-    }
-    return err;
-}
-
 PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRenderExtra *extra, bool isGPU)
 {
     PF_Err err = PF_Err_NONE, err2 = PF_Err_NONE;
@@ -941,7 +789,7 @@ PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRenderExtra
         AEFX_SuiteScoper<PF_WorldSuite2> world(in_data, kPFWorldSuite, kPFWorldSuiteVersion2, out_data);
         PF_PixelFormat fmt = PF_PixelFormat_INVALID;
         ERR(world->PF_GetPixelFormat(in, &fmt));
-        if (isGPU) ERR(RenderGPU(in_data, out_data, fmt, in, out, extra, p));
+        if (isGPU) ERR(drtae::renderGPU(in_data, out_data, fmt, in, out, extra, p));
         else       ERR(RenderCPU(in_data, out_data, fmt, in, out, p));
     }
     ERR2(extra->cb->checkin_layer_pixels(in_data->effect_ref, 0));
@@ -976,8 +824,8 @@ PF_Err EffectMain(PF_Cmd cmd, PF_InData *in_data, PF_OutData *out_data, PF_Param
 #if DRT_ROLE_GRADE
         case PF_Cmd_EVENT:              err = drtwheels::handleEvent(in_data, out_data, params, static_cast<PF_EventExtra *>(extra)); break;
 #endif
-        case PF_Cmd_GPU_DEVICE_SETUP:   err = GPUDeviceSetup(in_data, out_data, static_cast<PF_GPUDeviceSetupExtra *>(extra)); break;
-        case PF_Cmd_GPU_DEVICE_SETDOWN: err = GPUDeviceSetdown(in_data, out_data, static_cast<PF_GPUDeviceSetdownExtra *>(extra)); break;
+        case PF_Cmd_GPU_DEVICE_SETUP:   err = drtae::gpuDeviceSetup(in_data, out_data, static_cast<PF_GPUDeviceSetupExtra *>(extra)); break;
+        case PF_Cmd_GPU_DEVICE_SETDOWN: err = drtae::gpuDeviceSetdown(in_data, out_data, static_cast<PF_GPUDeviceSetdownExtra *>(extra)); break;
         case PF_Cmd_SMART_PRE_RENDER:   err = PreRender(in_data, out_data, static_cast<PF_PreRenderExtra *>(extra)); break;
         case PF_Cmd_SMART_RENDER:       err = SmartRender(in_data, out_data, static_cast<PF_SmartRenderExtra *>(extra), false); break;
         case PF_Cmd_SMART_RENDER_GPU:   err = SmartRender(in_data, out_data, static_cast<PF_SmartRenderExtra *>(extra), true); break;
