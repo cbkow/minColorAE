@@ -1069,8 +1069,8 @@ __DEVICE__ float3 drt_input_transform(DRT_PARAMS_ARG p, float3 rgb) {
 }
 
 /* ------------------------------------------------------------ macOS fix */
-/* NOT IN UPSTREAM. The "minColor macOS Fix" effect: the macOS view of
-   ocio/mincolor-viewport-shim.ocio as an effect with no settings. sRGB Display codes
+/* NOT IN UPSTREAM. The "minColor macOS Fix" effect: the macOS display of
+   ocio/mincolor.ocio as an effect with no settings, for Adobe-engine projects. sRGB Display codes
    (2.2 power, Rec.709) re-encoded for After Effects' Display P3 viewport on macOS:
    decode 2.2, Rec.709 -> P3-D65 primaries, encode 2.2. A workaround for how AE shows
    colour on macOS, not a creative choice; viewer only (put it on a Guide Layer). */

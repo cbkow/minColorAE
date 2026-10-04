@@ -1,6 +1,6 @@
 # ae/ — After Effects
 
-Two effects from one core, shaped like the old fnord OpenColorIO plugin: each
+Four effects from one core, shaped like the old fnord OpenColorIO plugin: each
 declares its own input on its popups, transforms whatever pixels reach it, and
 never asks AE what the layer or the project is.
 
@@ -8,54 +8,63 @@ never asks AE what the layer or the project is.
 | --- | --- | --- |
 | **minColor Input** | Interpret media: Input Gamut + Input Transfer to a linear working gamut | Footage layers |
 | **minColor Grade** | Colour correction in the working gamut, zones defined through the DRT | Between Input and Output: on a layer, or an adjustment layer below Output |
-| **minColor Output** | Picture formation: working-gamut linear in, display-encoded out | An adjustment layer on top, a precomp, or any layer you want rendered |
+| **minColor Output** | Rendering and encoding: working-gamut linear in; display-encoded out, or linear in the working space for OCIO projects | An adjustment layer on top, a precomp, or any layer you want rendered |
 
 ## The comp around them
 
-This is the whole colour pipeline; AE's own colour management is neither used
-nor fought. Set it up once per project:
+Two ways to set a project up. Either way the effects never ask AE what a layer
+or the project is; the minColor panel (`panel/`) does the setup for you.
 
-1. Project Settings > Color: colour management **off**, depth **32 bpc**.
-2. **minColor Input** on each footage layer, Input Gamut / Transfer set to what the
-   file is: LogC4 in ARRI Wide Gamut 4, S-Log3 in S-Gamut3.Cine, EXR as ACEScg
-   Linear, a graphic or a master as 2.2 power / Rec.1886 / PQ in its primaries.
-   Whether the Output then *renders* the comp (View: OpenDRT, for scene-referred
-   work) or *shows* it (View: Un-tone-mapped, pictures leave as they came in) is
-   the Output's View row, the same choice as an OCIO viewer's. The **OpenDRT
-   inverse** transfers are back on the Input as a test (2026-10-03): a finished
-   delivery through them with the same Display and Look as the Output on top
-   round-trips unchanged through the OpenDRT view. Working Gamut left at ACEScg. Put it on the footage
-   layer itself rather than an adjustment layer above several clips, so each clip
-   is linearised before it composites. A prerender out of any comp that carried a
-   display transform is a delivery, not linear.
-3. Composite in linear ACEScg.
-4. **minColor Output** on an adjustment layer at the top: Input Gamut ACEScg, Input
-   Transfer Linear, pick a Display Encoding and a Look.
-5. View the comp with **no** display transform (View > Display Color Management
-   off, or Un-tone-mapped), and render with the output module passing the working
-   space through. The effect's output is already display-encoded; anything AE
-   adds after it is applied twice.
+**OCIO (linear conversions; the panel's Fix OCIO).** The project's OCIO config is
+`minColor/mincolor.ocio` next to the `.aep` (generated from this core's matrices,
+`ocio/mincolor.ocio` in the repository) and its working space one of ACEScg,
+ACES2065-1, Linear Rec.709, Linear P3-D65 or Linear Rec.2020, chosen in Fix
+OCIO. Depth 32 bpc.
 
-It is exactly a Nuke script: Read-node colourspaces on the media, OpenDRT before
-the viewer.
+1. **minColor Input** on each footage layer (the panel's Apply In, by file
+   extension): Input Gamut / Transfer set to what the file is, Working Gamut set
+   to the project's working space. The config has no file rules, so AE converts
+   nothing on import; the Input is the only interpreter. Put it on the footage
+   layer itself rather than an adjustment layer above several clips, and treat a
+   prerender out of a comp that carried a display transform as a delivery, not
+   linear.
+2. Composite in the linear working space.
+3. View through the config: display **macOS (AE viewport fix)** on a Mac, **sRGB**
+   or **Rec.709 (BT.1886)** elsewhere, view **Un-tone-mapped**. Deliver through
+   the Output Module's *Output Color Space* (ACEScg, ACES2065-1, the linear
+   spaces, sRGB, Rec.709 BT.1886). The macOS display is viewer-only; deliveries
+   never carry it.
+4. **minColor Output** only for a rendered look: on an adjustment layer at the top
+   (the panel's Add Output), Input Gamut = the working space, Display Encoding
+   *None - Linear / Working Gamut*, Rendering OpenDRT. It hands back linear light
+   in the working space, so the same view and Output Module encode it.
 
-**macOS viewport fix (a hack, on purpose).** `ocio/mincolor-viewport-shim.ocio` is a
-config whose only job is AE's viewport on macOS. Pin it in Project Settings > Color
-(OCIO) and pick the display for your machine: *macOS (AE viewport fix)* re-encodes
-the Output's codes for AE's Display P3 viewport (what a studio's P3 2.2 house display does),
-*Windows (passthrough)* changes nothing. It assumes the Output's View encoding is
-**sRGB Display - 2.2 Power / Rec.709**, and it is a viewer transform, so renders never
-see it. It describes no scene: its working space is a label, and AE is assumed to pass
-pixels through.
+The config and the Input share every matrix, so a conversion made by either
+agrees with the other. The ACES spaces reach D65 through OpenDRT's CAT02
+adaptation; After Effects' own ACES configs use Bradford, which differs by at
+most about 0.004 on saturated colours and not at all on neutrals.
 
-**minColor macOS Fix** is the same correction as an effect with no settings, for
-projects that do not pin the shim: decode 2.2, Rec.709 -> P3-D65, encode 2.2,
-identical to the shim's macOS view (the probe checks). Put it on an adjustment
-layer at the very top and make that layer a **Guide Layer** (Layer > Guide Layer):
-guide layers show in the viewer and are skipped by the Render Queue and AME. An
-effect cannot tell a preview from a render, so on an ordinary layer it would be
-baked into the output. Same contract: the Output's View encoding is sRGB Display
-(2.2 power, Rec.709).
+**Adobe engine (pass-through).** Project Settings > Color: Adobe engine, working
+space **None**, footage interpreted as **Preserve RGB**; depth 32 bpc. AE then
+passes pixels through and the effects do everything:
+
+1. **minColor Input** on each footage layer, as above (Working Gamut ACEScg).
+2. **minColor Output** on an adjustment layer at the top, Display Encoding set to
+   the delivery (default sRGB Display - 2.2 Power / Rec.709): what it writes is
+   what renders.
+3. **minColor macOS Fix** on a guide layer at the very top to correct the viewer
+   on a Mac.
+
+**The macOS correction (a workaround, on purpose).** AE's viewport on macOS is
+Display P3 decoded as a 2.2 power, so Rec.709 pictures show oversaturated. The
+config's **macOS (AE viewport fix)** display sends linear P3-D65 encoded 2.2; the
+**minColor macOS Fix** effect does the same to an Output's sRGB Display codes
+(decode 2.2, Rec.709 -> P3-D65, encode 2.2; the probe checks it against the
+config's view). The effect has no settings and belongs on a **Guide Layer**
+(Layer > Guide Layer): guide layers show in the viewer and are skipped by the
+Render Queue and AME. An effect cannot tell a preview from a render, so on an
+ordinary layer it would be baked into the output. Neither ever touches a
+delivery.
 
 ## minColor Output controls
 
@@ -87,7 +96,7 @@ Top block, as in the Nuke node and the DCTL's preset mode:
   plus six display-referred decodes this port adds (Rec.1886, sRGB, 2.2 power,
   BT.709 camera, PQ, HLG) because an AE comp is mostly deliveries, not camera files.
 - **Display Encoding**: the nine DCTL presets, default **sRGB Display - 2.2 Power /
-  Rec.709** (what the macOS Fix and the viewport shim expect). Picking one writes
+  Rec.709** (what the macOS Fix expects). Picking one writes
   Display Gamut, Display EOTF and Peak Luminance (100 for SDR, 1000 for PQ/HLG),
   not Surround.
 - **Peak Luminance**, **HDR Grey Boost**, **HDR Purity**, **Grey Luminance**.

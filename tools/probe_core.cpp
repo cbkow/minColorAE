@@ -489,8 +489,9 @@ int main()
         ok = ok && good;
     }
 
-    /* 10h. macOS Fix (not in upstream): equals the macOS view of ocio/mincolor-viewport-shim.ocio
-            (PyOpenColorIO 2.6, 2026-10-03). */
+    /* 10h. macOS Fix (not in upstream): equals the macOS view of the earlier viewport shim
+            (PyOpenColorIO 2.6, 2026-10-03), which ocio/mincolor.ocio's macOS display reproduces
+            on linear input (4e-6, PyOpenColorIO, 2026-10-04). */
     {
         const float in[6][3]  = {{0.5f,0.5f,0.5f},{1,1,1},{1,0,0},{0,1,0},{0,0,1},{0.8f,0.4f,0.2f}};
         const float ref[6][3] = {{0.5f,0.5f,0.5f},{1,1,1},{0.9150f,0.2127f,0.1573f},{0.4558f,0.9848f,0.3032f},{0.0f,0.0f,0.9583f},{0.7474f,0.4210f,0.2479f}};
