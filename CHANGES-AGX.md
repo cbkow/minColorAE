@@ -34,5 +34,9 @@ Kovács). These are the modifications and additions, made by cbkow on
   method of Blender's AgX (Eary Chow et al.). At peak 100 it is the SDR AgX.
 - A target guard rail into Rec.709 or P3-D65 (the same luminance-preserving
   rail with the target's luminance weights), then a clip to the display range.
+- minColor AgX, an After Effects effect (`ae/`): the curated controls (working
+  and target gamut, peak, white / black relative exposure, contrast, toe and
+  shoulder power; hue restore, HDR purity and outset under Advanced), Metal and
+  CPU paths from the one source.
 - The darkening step uses the sigmoid unguarded (a negative scale with power 1
   is valid there); the main curve keeps darktable's guard.

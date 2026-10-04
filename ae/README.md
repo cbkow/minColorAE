@@ -1,6 +1,6 @@
 # ae/ — After Effects
 
-Four effects from one core, shaped like the old fnord OpenColorIO plugin: each
+Six effects from one core, shaped like the old fnord OpenColorIO plugin: each
 declares its own input on its popups, transforms whatever pixels reach it, and
 never asks AE what the layer or the project is.
 
@@ -8,6 +8,8 @@ never asks AE what the layer or the project is.
 | --- | --- | --- |
 | **minColor Input** | Interpret media: Input Gamut + Input Transfer to a linear working gamut | Footage layers |
 | **minColor Grade** | Colour correction in the working gamut, zones defined through the DRT | Between Input and Output: on a layer, or an adjustment layer below Output |
+| **minColor AgX** | AgX image formation: working-gamut scene light in, working-gamut display light out (1.0 = 100 nits) | An adjustment layer under Output |
+| **minColor Knee** | A highlight knee for ultrabright linear light | The top of the linear comp, or hot layers |
 | **minColor Output** | Rendering and encoding: working-gamut linear in; display-encoded out, or linear in the working space for OCIO projects | An adjustment layer on top, a precomp, or any layer you want rendered |
 
 ## The comp around them
@@ -104,6 +106,51 @@ hues hold, and below the knee start it is an exact identity. It has no gamut
 setting: the max is taken in whatever linear space the comp is in, which changes
 nothing for neutrals and very little for saturated highlights (QCView measures in
 Rec.2020).
+
+## minColor AgX
+
+AgX image formation, after Troy Sobotka's AgX, from linear scene light in the
+working gamut to linear display light in the same gamut, 1.0 = 100 nits.
+**Blender-compatible at its defaults:** at Peak 100 it reproduces Blender's "AgX"
+view (median difference 0.05 %, measured against Blender 5.2), and at Peak 1000
+with Target P3-D65 its HDR 1000 view (neutrals within 0.3 %, colours median
+0.6 %). It is not Blender's AgX and ships none of Blender's files: the curve,
+guard rail and hue restore are ported from darktable's AgX module, the primaries
+use the parameters Blender's AgX publishes, and the HDR construction is
+reimplemented from Blender's method (see `NOTICE`, `CHANGES-AGX.md`). Unlike a
+LUT, every part of it can be dialled.
+
+Put it on an adjustment layer over the comp's content, under minColor Output and
+any macOS Fix layer (the panel's **Add AgX**). In an OCIO project the view and
+the Output Module then encode its result as they would any linear light; in an
+Unmanaged or Adobe-engine project, minColor Output with Rendering
+*Un-tone-mapped* encodes it. AgX is a complete image formation: don't follow it
+with the Output's OpenDRT rendering, and it needs no Knee (it already lands
+everything at or under Peak). Work in 32 bpc: 8 and 16 bpc clip at 1.0 (100
+nits).
+
+- **Working Gamut**: the comp's working space (Add AgX sets it from the project).
+  AgX works in Rec.2020, so this tells it what the pixels are; set wrong, saturated
+  colours render wrong. Neutrals do not depend on it.
+- **Target Gamut**: the gamut the result has to fit, default *Rec.709 (sRGB)*;
+  *P3-D65* for P3 deliveries and HDR, *Rec.2020* for none. Colours AgX would place
+  outside it are brought in AgX's way (luminance kept) instead of being left to a
+  clip downstream. Only colours outside the target change.
+- **Peak Luminance (nits)**, default 100 (SDR). Above 100, Blender's HDR
+  construction: grey stays at 18 nits, the shoulder stretches to the peak. Drags
+  100-4000; type up to 10000. AE's viewer shows only up to 1.0 (100 nits).
+- **White / Black Relative Exposure (EV)**, defaults +6.5 / -10: the scene range,
+  in stops from grey, that reaches the top and the floor. Raise White to hold more
+  highlight before the shoulder; lower Black for more shadow detail.
+- **Contrast**, default 2.4: the curve's slope at grey. It keeps its meaning when
+  the range changes (darktable's convention).
+- **Toe Power / Shoulder Power**, defaults 1.5: how hard the curve bends into black
+  and into the peak. With Peak above 100 the shoulder is multiplied by
+  (peak / 100)^log10(2), as in Blender's HDR.
+- **Advanced**, collapsed: **Hue Restore** (0.6, Blender's: the share of the hue
+  from before the curve kept after it), **HDR Purity** (0.5: hue and saturation
+  restored around the HDR grey darkening; greyed at Peak 100), **Purity Restore
+  (Outset)** (1 = Blender's; 0 leaves the picture desaturated by the inset).
 
 ## minColor Output controls
 
