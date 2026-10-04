@@ -12,10 +12,14 @@
 // button and reports only what that click did.
 //
 // Sidecar: <project folder>/minColor/ holds the viewport shim (and, later, the
-// In/Out presets). Pin Viewport Shim writes the shim there and makes it the
-// project's OCIO config; AE stores that path absolutely, so after moving the
-// project, press it again. For Adobe-engine projects the macOS Fix effect, added
-// by hand on a guide layer, does the shim's job instead.
+// In/Out presets). Fix OCIO writes the shim there, makes it the project's OCIO
+// config, and sets the working space to minColor Output by editing the saved
+// .aep and reopening it: AE has no API that sets an OCIO working space (the
+// scripting setter leaves it None, the plug-in suites are read-only), and on a
+// config switch it keeps the old working-space name, or none. AE stores the
+// config path absolutely, so after moving the project, press it again. For
+// Adobe-engine projects the macOS Fix effect, added by hand on a guide layer,
+// does the shim's job instead.
 //
 // ExtendScript groups an unparenthesised nested ?: from the LEFT; always parenthesise.
 //
@@ -56,14 +60,51 @@
     var ok = file.write(s); file.close(); return ok;
   }
 
-  /* Pin Viewport Shim: write minColor/mincolor-viewport-shim.ocio next to the saved
-     .aep (only when missing: AE caches a parsed config per path for the session,
-     and the copy may have been edited), make it the project's OCIO config, and
-     turn the OCIO engine on. On an Adobe-engine project that switch changes how
-     footage is interpreted; the button's tip says so. */
-  function pinShim() {
+  // ---- the .aep working-space record ---------------------------------------------------
+  /* A .aep is RIFX (big-endian sizes, chunks padded to even). The project's working
+     space is a top-level "PwCs" chunk followed by a "Utf8" chunk holding JSON, so a
+     rewrite only changes that chunk and the RIFX header's size; the XMP trailer after
+     the RIFX body is kept. The JSON is what AE 26.5 itself writes for "minColor
+     Output" (read back from a project where it was picked in Project Settings);
+     colorProfileData is base64 of {"colorSpace1":"minColor Output"}. The technique
+     (save, back up, rewrite, reopen) comes from minColor 0.x's AEPPatch. */
+  var WS_JSON = '{"baseColorProfile":{"colorProfileData":"eyJjb2xvclNwYWNlMSI6Im1pbkNvbG9yIE91dHB1dCJ9",' +
+                '"colorProfileName":"minColor Output"},"baseProfileType":3}';
+  function u32(s, o) { return ((s.charCodeAt(o) << 24) | (s.charCodeAt(o + 1) << 16) | (s.charCodeAt(o + 2) << 8) | s.charCodeAt(o + 3)) >>> 0; }
+  function p32(n) { return String.fromCharCode((n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255); }
+  function readBinary(file) { file.encoding = "BINARY"; if (!file.open("r")) return null; var s = file.read(); file.close(); return s; }
+  function writeBinary(file, s) { file.encoding = "BINARY"; if (!file.open("w")) return false; var ok = file.write(s); file.close(); return ok; }
+  /* Returns null on success, else why it did not write. */
+  function writeWorkingSpace(file, json) {
+    var d = readBinary(file);
+    if (d === null) return "could not read " + file.fsName;
+    if (d.substr(0, 4) !== "RIFX") return "not a RIFX .aep";
+    var total = 8 + u32(d, 4), off = 12, prev = null;
+    while (off + 8 <= total) {
+      var tag = d.substr(off, 4), sz = u32(d, off + 4), next = off + 8 + sz + (sz & 1);
+      if (tag === "Utf8" && prev === "PwCs") {
+        var chunk = "Utf8" + p32(json.length) + json + ((json.length & 1) ? "\x00" : "");
+        d = d.substring(0, off) + chunk + d.substring(next);
+        total += chunk.length - (next - off);
+        d = "RIFX" + p32(total - 8) + d.substring(8);
+        return writeBinary(file, d) ? null : "could not write " + file.fsName;
+      }
+      prev = tag; off = next;
+    }
+    return "no working-space record found";
+  }
+
+  /* Fix OCIO: shim into minColor/ (only when missing: AE caches a parsed config per
+     path for the session, and the copy may have been edited), the project's OCIO
+     config set to it with OCIO on (live, through scripting), saved, backed up to
+     minColor/, working space rewritten in the file, reopened, read back. */
+  function fixOCIO() {
     var out = [], f = app.project.file;
     if (!f) { out.push("Save the project first: the shim goes in a minColor folder next to it. Nothing changed."); return out; }
+    var ask = "Fix OCIO will save this project, point its OCIO config at minColor/" + SHIM_NAME +
+              " with working space minColor Output, and reopen it (undo history is cleared). " +
+              "On an Adobe-engine project this changes how footage is interpreted.\n\nContinue?";
+    if (!$.global.__minColorAEAutoConfirm && !confirm(ask)) { out.push("Cancelled. Nothing changed."); return out; }   /* the flag: unattended tests */
     var dir = new Folder(f.parent.fsName + "/minColor");
     if (!dir.exists && !dir.create()) { out.push("Could not create " + dir.fsName + ". Nothing changed."); return out; }
     var shim = new File(dir.fsName + "/" + SHIM_NAME);
@@ -71,17 +112,26 @@
       if (!writeText(shim, SHIM_TEXT)) { out.push("Could not write " + shim.fsName + ". Nothing changed."); return out; }
       out.push("Wrote minColor/" + SHIM_NAME + ".");
     } else if (readText(shim) !== SHIM_TEXT) {
-      out.push("minColor/" + SHIM_NAME + " differs from this panel's (" + VERSION + "); kept it. Delete it and press again for a fresh copy.");
-    } else {
-      out.push("minColor/" + SHIM_NAME + " is already there.");
+      out.push("Kept minColor/" + SHIM_NAME + " (it differs from this panel's " + VERSION + "; delete it for a fresh copy).");
     }
     try {
       app.project.ocioConfigurationFile = shim.fsName;
       if (app.project.colorManagementSystem !== 1) app.project.colorManagementSystem = 1;
-      out.push("Set it as the project's OCIO config.");
-      out.push("Check Project Settings > Color: Working Color Space = minColor Output, and the viewer display for this machine.");
-    } catch (e) {
-      out.push("After Effects refused the config: " + e.toString());
+    } catch (e) { out.push("After Effects refused the shim: " + e.toString() + ". Project not saved."); return out; }
+    var path = f.fsName;
+    app.project.save();
+    var backup = new File(dir.fsName + "/" + f.name.replace(/\.aep$/i, "") + ".before-fix-ocio.aep");
+    if (!new File(path).copy(backup.fsName)) { out.push("Could not back up the project; the working space was not changed. Set it in Project Settings > Color."); return out; }
+    var why = writeWorkingSpace(new File(path), WS_JSON);
+    if (why) { out.push("Working space not changed (" + why + "). Set it in Project Settings > Color."); return out; }
+    app.open(new File(path));
+    var ws = ""; try { ws = app.project.workingSpace; } catch (e) {}
+    if (ws === "minColor Output") {
+      out.push("Fixed: OCIO config minColor/" + SHIM_NAME + ", working space minColor Output. Project reopened.");
+      out.push("Backup: minColor/" + backup.name.replace(/%20/g, " "));
+    } else {
+      out.push("Reopened, but the working space reads \"" + ws + "\". The previous file is minColor/" +
+               backup.name.replace(/%20/g, " ") + ".");
     }
     return out;
   }
@@ -174,8 +224,9 @@
 
   var bAdd = flatButton(win, "Add Output", { primary: true,
     tip: "Adjustment layer with minColor Output at the top of the active comp (under a macOS Fix layer if there is one)" });
-  var bShim = flatButton(win, "Pin Viewport Shim", {
-    tip: "Writes the macOS viewport shim into minColor/ next to the project and makes it the project's OCIO config.\n" +
+  var bShim = flatButton(win, "Fix OCIO", {
+    tip: "Saves the project, sets its OCIO config to the viewport shim in minColor/ with working space\n" +
+         "minColor Output, and reopens it (a backup goes in minColor/; undo history is cleared).\n" +
          "Turns OCIO on: on an Adobe-engine project that changes how footage is interpreted.\n" +
          "Press again after moving the project." });
   var report = win.add("statictext", undefined, "", { multiline: true });
@@ -191,7 +242,7 @@
     try { win.update(); } catch (e) {}
   }
   bAdd.onClick = function () { this.active = false; run(addOutput); };   /* active=false: ScriptUI keeps a pressed look otherwise */
-  bShim.onClick = function () { this.active = false; run(pinShim); };
+  bShim.onClick = function () { this.active = false; run(fixOCIO); };
 
   win.layout.layout(true);
   win.onResizing = win.onResize = function () { try { this.layout.resize(); } catch (e) {} };

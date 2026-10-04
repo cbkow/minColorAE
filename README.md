@@ -62,10 +62,13 @@ Manual and passive: it never reads or reports the project's colour settings
 (AE's scripting answers for those can be stale), and nothing a frame renders
 depends on it. **Add Output** puts an adjustment layer with minColor Output at the
 top of the active comp (under a macOS Fix layer if there is one), once per comp,
-as one undo step. **Pin Viewport Shim** writes the shim into `minColor/` next to
-the saved `.aep` and makes it the project's OCIO config, turning OCIO on (on an
-Adobe-engine project that changes how footage is interpreted); press it again
-after moving the project. In an Adobe-engine project, add minColor macOS Fix by
+as one undo step. **Fix OCIO** saves the project, writes the shim into
+`minColor/` next to the `.aep`, makes it the project's OCIO config (OCIO on; on
+an Adobe-engine project that changes how footage is interpreted), sets the
+working space to minColor Output and reopens the project (undo history is
+cleared; the saved file before the change is kept in `minColor/`). AE has no API
+that sets an OCIO working space, so the panel writes it into the saved `.aep`.
+Press it again after moving the project. In an Adobe-engine project, add minColor macOS Fix by
 hand on a guide layer instead.
 
 ## License
