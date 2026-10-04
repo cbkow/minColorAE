@@ -160,7 +160,7 @@ struct DrtParams {
   int rnd_su;            /* DRT_SURROUND_* */
   int rnd_view;          /* 0 OpenDRT, 1 Un-tone-mapped */
   int reserved_i3;
-  int reserved_i4;
+  int kn_auto;           /* Knee (core/mincolor_knee.h): 1 = BT.2390 knee start */
   int reserved_i5;
 
   /* ---------------- user floats : 60 ---------------- */
@@ -235,7 +235,7 @@ struct DrtParams {
                             luminance before inverting (1 = off). The tonescale's ceiling makes the
                             inverse unbounded at a master's white: a PQ master's rim pixels invert to
                             negative, hundreds-high scene values that any grade turns into colour. */
-  float reserved_f1;
+  float kn_src;          /* Knee: source peak, nits */
   float rnd_Lp;          /* Output, Render block: peak luminance, nits */
 
   /* ---------------- derived by drt_derive() : 36 ---------------- */
@@ -261,15 +261,17 @@ struct DrtParams {
   float rs_wr;
   float rs_wg;
   float rs_wb;
-  float reserved_d0;
+  float kn_pq_src;       /* Knee, derived by drt_knee_derive(): PQ(source peak) */
   /* XYZ D65 -> working gamut, row major: the inverse of working_gamut's forward
      matrix, for drt_input_transform() (Input effect). Identity when unused. */
   float wk_m00; float wk_m01; float wk_m02;
   float wk_m10; float wk_m11; float wk_m12;
   float wk_m20; float wk_m21; float wk_m22;
-  float reserved_d1;
-  float reserved_d2;
-  float reserved_d3;
+  /* Knee: two user fields and one derived, in the derived block's spare slots so the
+     struct keeps its size (drt_derive() leaves them alone) */
+  float kn_tgt;          /* Knee: target peak, nits */
+  float kn_start;        /* Knee: knee start, fraction of the target in PQ (kn_auto 0) */
+  float kn_max_lum;      /* Knee, derived: PQ(target) / PQ(source) */
 };
 
 #define DRT_PARAMS_SCALARS 124   /* 28 + 60 + 36; sizeof(DrtParams) == 496 on every dialect */

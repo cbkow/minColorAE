@@ -79,6 +79,31 @@ Render Queue and AME. An effect cannot tell a preview from a render, so on an
 ordinary layer it would be baked into the output. Neither ever touches a
 delivery.
 
+## minColor Knee
+
+A highlight knee for linear light brighter than where it is going: HDR footage, CG
+and comp work above 1.0, into an SDR view or delivery (Target 100) or an HDR one
+(Target its peak). Put it at the top of the linear comp, under the view in an OCIO
+project, under minColor Output in an Unmanaged or Adobe-engine one; or on single
+hot layers. Linear in and out, 1.0 = 100 nits.
+
+- **Source Peak (nits)**, default 1000: the brightest content that should still
+  map; anything brighter lands on the target too.
+- **Target Peak (nits)**, default 100.
+- **Auto Knee Start (BT.2390)**, on by default: BT.2390's shoulder and knee start,
+  exactly as QCView's Highlight Knee. It starts early: for 1000 -> 100 nits the knee
+  begins near 28 nits and SDR white (100 nits) lands near 70.
+- **Knee Start** (with Auto off): where the knee begins, as a fraction of the
+  target in PQ. A hand-set start uses a monotonic hyperbola instead of BT.2390's
+  Hermite, which overshoots the target when started late. For 1000 -> 100 nits, 0.95
+  begins near 78 nits and puts SDR white near 89.
+
+The knee works on max(R,G,B) and scales all three channels by the same ratio, so
+hues hold, and below the knee start it is an exact identity. It has no gamut
+setting: the max is taken in whatever linear space the comp is in, which changes
+nothing for neutrals and very little for saturated highlights (QCView measures in
+Rec.2020).
+
 ## minColor Output controls
 
 **One encoding.** The Output has a single Display Encoding: what it writes is

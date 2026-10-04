@@ -343,4 +343,15 @@ static const Row kMacFixRows[] = {
 };
 static const int kMacFixRowCount = int(sizeof(kMacFixRows) / sizeof(kMacFixRows[0]));
 
+/* ------------------------------------------------------------------ Knee */
+/* core/mincolor_knee.h. Linear in and out, 1.0 = 100 nits; no gamut row (max(R,G,B)
+   is taken over whatever space the comp is in). A new table: auto ids from 1. */
+static const Row kKneeRows[] = {
+    DRT_F(kn_src,   "Source Peak (nits)", 100.0f, 10000.0f, 0),   /* the brightest content that should still map */
+    DRT_F(kn_tgt,   "Target Peak (nits)", 48.0f,  10000.0f, 0),   /* 100 for SDR deliveries */
+    DRT_C(kn_auto,  "Auto Knee Start (BT.2390)"),
+    DRT_F(kn_start, "Knee Start",         0.0f,   0.99f,    2),   /* fraction of the target, in PQ; greyed under Auto */
+};
+static const int kKneeRowCount = int(sizeof(kKneeRows) / sizeof(kKneeRows[0]));
+
 } // namespace drtae

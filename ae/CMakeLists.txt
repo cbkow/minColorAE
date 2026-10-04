@@ -102,6 +102,7 @@ set(_msl_parts
   "${_core}/opendrt_params.h"
   "${_core}/opendrt_kernel.h"
   "${_core}/opendrt_grade.h"
+  "${_core}/mincolor_knee.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/common/drt_ae_kernels.metal")
 # A CMake list would split into separate arguments on the command line; join with '|'.
 string(REPLACE ";" "|" _msl_joined "${_msl_parts}")
@@ -132,5 +133,6 @@ drt_ae_effect(mincolor_output DRT_ROLE_OUTPUT "minColor Output" output minColor_
 drt_ae_effect(mincolor_input  DRT_ROLE_INPUT  "minColor Input"  input  minColor_Input_PiPL.r)
 drt_ae_effect(mincolor_grade  DRT_ROLE_GRADE  "minColor Grade"  grade  minColor_Grade_PiPL.r)
 drt_ae_effect(mincolor_macfix DRT_ROLE_MACFIX "minColor macOS Fix" macfix minColor_macOS_Fix_PiPL.r)
+drt_ae_effect(mincolor_knee   DRT_ROLE_KNEE   "minColor Knee"   knee   minColor_Knee_PiPL.r)
 
-add_custom_target(install_ae DEPENDS install_mincolor_output install_mincolor_input install_mincolor_grade install_mincolor_macfix)
+add_custom_target(install_ae DEPENDS install_mincolor_output install_mincolor_input install_mincolor_grade install_mincolor_macfix install_mincolor_knee)

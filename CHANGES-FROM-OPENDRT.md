@@ -50,4 +50,6 @@ None of them is part of, or endorsed by, OpenDRT.
   workaround for how After Effects shows colour on macOS.
 - `ocio/mincolor.ocio` and `tools/make_ocio.cpp`: an OCIO config for linear
   conversions, generated from the core's gamut matrices (taken from upstream).
+- The minColor Knee effect (`core/mincolor_knee.h`): a highlight knee ported from
+  the author's QCView, not from OpenDRT.
 - The After Effects hosting (`ae/`): upstream ships no After Effects version.

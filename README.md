@@ -1,7 +1,7 @@
 # minColorAE
 
-Colour tools for After Effects: four effects that interpret media, grade it, and
-render it for a display, built on a rendering derived from
+Colour tools for After Effects: five effects that interpret media, grade it,
+compress its highlights, and render it for a display, built on a rendering derived from
 [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 by Jed Smith.
 
 minColorAE is not OpenDRT and is not affiliated with or endorsed by the OpenDRT
@@ -17,6 +17,7 @@ Version 0.1.1. macOS (Metal + CPU), After Effects 26.5.
 | **minColor Input** | What a file is: input gamut and transfer (camera logs, Rec.1886, sRGB, PQ, HLG, linear), video range, into the comp's linear working gamut. Also the "OpenDRT inverse" transfers for material rendered through this same rendering. |
 | **minColor Output** | The rendering, on an adjustment layer at the top: look, tonescale, display encoding. Two renderings (Un-tone-mapped by default, or the OpenDRT-derived one) and one display encoding (linear in the working space for OCIO projects). |
 | **minColor Grade** | Exposure, contrast, six luminance zones defined through the tonescale with colour wheels, and an HSL secondary with eyedroppers. |
+| **minColor Knee** | A highlight knee for ultrabright linear light: Source Peak, Target Peak, Knee Start (BT.2390 auto, or set by hand). Untouched below the knee start; hues hold. Before an SDR view or delivery. |
 | **minColor macOS Fix** | No settings. Corrects how After Effects shows colour in its viewport on macOS; viewer only, on a Guide Layer. |
 
 `ocio/mincolor.ocio` is the OCIO config for linear conversions: five linear

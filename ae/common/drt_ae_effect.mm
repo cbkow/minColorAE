@@ -97,8 +97,15 @@ void dlog(const char *fmt, ...)
 #define DRT_ROWS         drtae::kMacFixRows
 #define DRT_ROW_COUNT    drtae::kMacFixRowCount
 #define DRT_APPLY(p, v)  drt::drt_macos_fix(v)
+#elif DRT_ROLE_KNEE
+#define DRT_EFFECT_NAME  "minColor Knee"
+#define DRT_MATCH_NAME   "ski.bialkow minColor Knee"
+#define DRT_KERNEL_NAME  "drt_knee_kernel"
+#define DRT_ROWS         drtae::kKneeRows
+#define DRT_ROW_COUNT    drtae::kKneeRowCount
+#define DRT_APPLY(p, v)  drt::drt_knee((p).d, (v))
 #else
-#error define DRT_ROLE_OUTPUT, DRT_ROLE_INPUT, DRT_ROLE_GRADE or DRT_ROLE_MACFIX
+#error define DRT_ROLE_OUTPUT, DRT_ROLE_INPUT, DRT_ROLE_GRADE, DRT_ROLE_MACFIX or DRT_ROLE_KNEE
 #endif
 
 /* What pre-render hands to render: the DRT block, and for Grade its own block too. */
@@ -217,6 +224,8 @@ DrtRender effectDefaults()
     x.d.tn_sh = 0.0f;   /* Shoulder Clip 0 on a fresh Input (2026-10-02); a Look preset still brings its own */
 #endif
     x.g = drt::drt_grade_defaults();
+    /* Knee: an HDR source into an SDR delivery, BT.2390's knee start */
+    x.d.kn_src = 1000.0f; x.d.kn_tgt = 100.0f; x.d.kn_auto = 1; x.d.kn_start = 0.5f;
     return x;
 }
 
@@ -589,7 +598,7 @@ PF_Err UserChangedParam(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *p
    Input: the look rows mean nothing unless an inverse transfer is selected, so
    grey them out otherwise. AE sends PF_Cmd_UPDATE_PARAMS_UI whenever a param
    changes (PF_OutFlag_SEND_UPDATE_PARAMS_UI); only flags that differ are written back. */
-#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT
+#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT || DRT_ROLE_KNEE
 static bool rowGreyed(const Row &r, int k, bool grey)
 {
     if (r.kind == drtae::kEndTopic || r.kind == drtae::kTopic || r.kind == drtae::kTopicOpen) return false;
@@ -603,6 +612,9 @@ static bool rowGreyed(const Row &r, int k, bool grey)
     const bool always = r.kind == drtae::kPopup && (r.i == &drt::DrtParams::in_gamut || r.i == &drt::DrtParams::in_oetf);
     if (always || encoding) return false;        /* input and encoding rows stay live */
     return grey;                                 /* look rows: grey when the active rendering is Un-tone-mapped */
+#elif DRT_ROLE_KNEE
+    (void)k;
+    return grey && r.kind == drtae::kFloat && r.f == &drt::DrtParams::kn_start;   /* Knee Start greys under Auto */
 #else
     return k >= drtae::kInputLookRowsFrom && grey;
 #endif
@@ -611,7 +623,7 @@ static bool rowGreyed(const Row &r, int k, bool grey)
 
 PF_Err UpdateParamsUI(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[])
 {
-#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT
+#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT || DRT_ROLE_KNEE
     bool grey = false;
 #if DRT_ROLE_OUTPUT
     int viewRow = -1;
@@ -619,6 +631,9 @@ PF_Err UpdateParamsUI(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *par
         if (DRT_ROWS[k].kind == drtae::kPopup && DRT_ROWS[k].i == &drt::DrtParams::out_view) viewRow = k;
     if (viewRow < 0) return PF_Err_NONE;
     grey = choiceToField(DRT_ROWS[viewRow], int(params[paramIndex(viewRow)]->u.pd.value)) == 1;
+#elif DRT_ROLE_KNEE
+    for (int k = 0; k < DRT_ROW_COUNT; ++k)
+        if (DRT_ROWS[k].kind == drtae::kCheck && DRT_ROWS[k].i == &drt::DrtParams::kn_auto) grey = params[paramIndex(k)]->u.bd.value != 0;
 #else
     grey = choiceToField(DRT_ROWS[1], int(params[paramIndex(1)]->u.pd.value)) < DRT_OETF_INVERSE_FIRST;
 #endif
@@ -678,6 +693,9 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
     p->d = drt::drt_derive(p->d);
 #if DRT_ROLE_GRADE
     p->g = drt::drt_grade_derive(p->g, p->d);
+#endif
+#if DRT_ROLE_KNEE
+    p->d = drt::drt_knee_derive(p->d);
 #endif
 
     extra->output->pre_render_data = p;

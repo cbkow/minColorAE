@@ -27,6 +27,7 @@ namespace drt {
 #include "opendrt_params.h"
 #include "opendrt_kernel.h"
 #include "opendrt_grade.h"
+#include "mincolor_knee.h"
 
 static_assert(sizeof(DrtParams) == DRT_PARAMS_SCALARS * 4,
               "DrtParams must stay a flat block of 4-byte scalars, count a multiple of 4 "

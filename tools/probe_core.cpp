@@ -12,6 +12,7 @@
  * Exit code 0 = every case within tolerance. Prints the worst case per section.
  */
 #include <cstdio>
+#include <array>
 #include <cmath>
 #include <vector>
 
@@ -578,6 +579,66 @@ int main()
 
         report("grade", Worst{});
         if (!good) std::printf("   grade checks FAILED\n");
+        ok = ok && good;
+    }
+
+    /* 12. Knee (not in upstream; core/mincolor_knee.h). Auto (BT.2390) against QCView's
+           Highlight Knee (linear_stage.h, its apply() with identity matrices, i.e.
+           measured in the pixels' own space). Every case: identity below the knee, the
+           source peak lands on the target, monotonic and never above the target (the
+           hand-set start's hyperbola; QCView's Hermite overshoots there). */
+    {
+        auto pqE = [](float y) { const float m1 = 0.1593017578125f, m2 = 78.84375f, c1 = 0.8359375f, c2 = 18.8515625f, c3 = 18.6875f;
+                                 const float q = std::pow(std::max(y, 0.0f), m1); return std::pow((c1 + c2 * q) / (1.0f + c3 * q), m2); };
+        auto pqD = [](float e) { const float m1 = 0.1593017578125f, m2 = 78.84375f, c1 = 0.8359375f, c2 = 18.8515625f, c3 = 18.6875f;
+                                 const float q = std::pow(std::clamp(e, 0.0f, 1.0f), 1.0f / m2); return std::pow(std::max(q - c1, 0.0f) / (c2 - c3 * q), 1.0f / m1); };
+        auto qcv = [&](float src, float tgt, float startFrac, float *rgb) {   /* QCView linear_stage resolve() + apply() */
+            const float pqSrc = pqE(src / 10000.0f), ml = pqE(tgt / 10000.0f) / pqSrc;
+            if (ml >= 0.999f) return;
+            float ks = startFrac < 0.0f ? std::max(0.0f, 1.5f * ml - 0.5f) : startFrac * ml;
+            ks = std::clamp(ks, 0.0f, ml * 0.999f);
+            const float m = std::max(rgb[0], std::max(rgb[1], rgb[2]));
+            if (m <= 0.0f) return;
+            const float e1 = std::min(pqE(m * 0.01f) / pqSrc, 1.0f);
+            float e2 = e1;
+            if (e1 >= ks) { const float t = (e1 - ks) / (1.0f - ks), t2 = t * t, t3 = t2 * t;
+                            e2 = (2 * t3 - 3 * t2 + 1) * ks + (t3 - 2 * t2 + t) * (1 - ks) + (-2 * t3 + 3 * t2) * ml; }
+            const float k = pqD(e2 * pqSrc) * 100.0f / m;
+            rgb[0] *= k; rgb[1] *= k; rgb[2] *= k;
+        };
+        bool good = true; double worst = 0.0;
+        const float cases[][3] = {{1000, 100, -1}, {4000, 1000, -1}, {1000, 100, 0.6f}, {2000, 203, 0.3f}, {1000, 100, 0.95f}, {4000, 100, 0.9f}};
+        for (const auto &c : cases) {
+            drt::DrtParams p = drt::drt_stickshift_defaults();
+            p.kn_src = c[0]; p.kn_tgt = c[1]; p.kn_auto = c[2] < 0.0f ? 1 : 0; p.kn_start = c[2] < 0.0f ? 0.5f : c[2];
+            p = drt::drt_knee_derive(p);
+            float prev = 0.0f;
+            for (float v : {0.01f, 0.18f, 0.5f, 1.0f, 2.0f, 5.0f, 10.0f, 20.0f, 40.0f, 80.0f, 200.0f}) {
+                for (const auto &col : {std::array<float,3>{1.0f, 1.0f, 1.0f}, std::array<float,3>{1.0f, 0.4f, 0.1f}, std::array<float,3>{0.2f, 0.5f, 1.0f}}) {
+                    const drt::float3 o = drt::drt_knee(p, drt::make_float3(v * col[0], v * col[1], v * col[2]));
+                    if (c[2] < 0.0f) {                                           /* Auto: QCView parity */
+                        float ref[3] = {v * col[0], v * col[1], v * col[2]};
+                        qcv(c[0], c[1], c[2], ref);
+                        const double e = std::max({std::fabs(double(o.x - ref[0])), std::fabs(double(o.y - ref[1])), std::fabs(double(o.z - ref[2]))}) / std::max(1.0, double(ref[0] + ref[1] + ref[2]));
+                        worst = std::max(worst, e);
+                    }
+                    if (col[1] == 1.0f && col[2] == 1.0f) {                      /* neutral: monotonic, under the target */
+                        if (o.x < prev - 1e-6f) { std::printf("   knee not monotonic at %g\n", v); good = false; }
+                        if (o.x * 100.0f > c[1] * 1.0001f && v * 100.0f > c[1]) { std::printf("   knee overshoots: %g nits -> %g (target %g)\n", v * 100.0f, o.x * 100.0f, c[1]); good = false; }
+                        prev = o.x;
+                    }
+                }
+            }
+            const float startNits = pqD(drt::drt_knee_start(p) * p.kn_pq_src) * 10000.0f;   /* where the knee begins */
+            const float below = 0.99f * startNits / 100.0f;
+            const drt::float3 lo = drt::drt_knee(p, drt::make_float3(below, below, below));
+            std::printf("   knee %g -> %g nits, start %s: knee begins at %.1f nits\n", c[0], c[1], c[2] < 0.0f ? "auto" : "manual", startNits);
+            const drt::float3 hi = drt::drt_knee(p, drt::make_float3(c[0] / 100.0f, c[0] / 100.0f, c[0] / 100.0f));
+            if (std::fabs(lo.x - below) > 1e-6f * std::max(1.0f, below)) { std::printf("   knee moves %g (below its start) -> %g\n", below, lo.x); good = false; }
+            if (std::fabs(hi.x * 100.0f - c[1]) > 0.01f * c[1]) { std::printf("   knee: source %g nits -> %g, want %g\n", c[0], hi.x * 100.0f, c[1]); good = false; }
+        }
+        good = good && worst < 1e-5;
+        std::printf("%-34s vs QCView Highlight Knee worst %.2e  %s\n", "knee", worst, good ? "" : "FAILED");
         ok = ok && good;
     }
 
