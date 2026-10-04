@@ -103,6 +103,7 @@ set(_msl_parts
   "${_core}/opendrt_kernel.h"
   "${_core}/opendrt_grade.h"
   "${_core}/mincolor_knee.h"
+  "${_core}/mincolor_agx.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/common/drt_ae_kernels.metal")
 # A CMake list would split into separate arguments on the command line; join with '|'.
 string(REPLACE ";" "|" _msl_joined "${_msl_parts}")
@@ -112,7 +113,7 @@ add_custom_command(OUTPUT "${_gen}/drt_ae_msl.h"
   DEPENDS ${_msl_parts} cmake/embed_text.cmake
   COMMENT "Embed the Metal source (core + AE kernels)" VERBATIM)
 
-# ---- the two effects ---------------------------------------------------------
+# ---- the effects ---------------------------------------------------------
 function(drt_ae_effect name role outname subdir pipl)
   add_library(${name} MODULE
     common/drt_ae_effect.mm
@@ -134,5 +135,6 @@ drt_ae_effect(mincolor_input  DRT_ROLE_INPUT  "minColor Input"  input  minColor_
 drt_ae_effect(mincolor_grade  DRT_ROLE_GRADE  "minColor Grade"  grade  minColor_Grade_PiPL.r)
 drt_ae_effect(mincolor_macfix DRT_ROLE_MACFIX "minColor macOS Fix" macfix minColor_macOS_Fix_PiPL.r)
 drt_ae_effect(mincolor_knee   DRT_ROLE_KNEE   "minColor Knee"   knee   minColor_Knee_PiPL.r)
+drt_ae_effect(mincolor_agx    DRT_ROLE_AGX    "minColor AgX"    agx    minColor_AgX_PiPL.r)
 
-add_custom_target(install_ae DEPENDS install_mincolor_output install_mincolor_input install_mincolor_grade install_mincolor_macfix install_mincolor_knee)
+add_custom_target(install_ae DEPENDS install_mincolor_output install_mincolor_input install_mincolor_grade install_mincolor_macfix install_mincolor_knee install_mincolor_agx)

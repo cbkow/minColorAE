@@ -83,6 +83,23 @@ kernel void drt_knee_kernel(const device float4     *src [[buffer(0)]],
     dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
 }
 
+kernel void drt_agx_kernel(const device float4     *src [[buffer(0)]],
+                           device float4           *dst [[buffer(1)]],
+                           constant DrtParams      &p   [[buffer(2)]],
+                           constant DrtAeHeader    &h   [[buffer(3)]],
+                           constant DrtAgxParams   &g   [[buffer(4)]],
+                           uint2 xy                     [[thread_position_in_grid]])
+{
+    if (xy.x >= uint(h.width) || xy.y >= uint(h.height)) return;
+    float4 px = src[xy.y * h.srcPitch + xy.x];
+    const float a = px.w;
+    float3 rgb = float3(px.z, px.y, px.x);
+    if (a > 0.0f && a < 1.0f) rgb = rgb / a;
+    rgb = drt_agx(g, rgb);
+    if (a > 0.0f && a < 1.0f) rgb = rgb * a;
+    dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
+}
+
 kernel void drt_input_kernel(const device float4     *src [[buffer(0)]],
                              device float4           *dst [[buffer(1)]],
                              constant DrtParams      &p   [[buffer(2)]],

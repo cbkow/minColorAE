@@ -12,7 +12,7 @@
 resource 'PiPL' (16000) {
 	{
 		Kind { AEEffect },
-		Name { "minColor macOS Fix" },
+		Name { "minColor AgX" },
 		Category { "minColor" },
 #ifdef AE_OS_WIN
     #if defined(AE_PROC_INTELx64)
@@ -30,7 +30,7 @@ resource 'PiPL' (16000) {
 		AE_Effect_Info_Flags { 0 },
 		AE_Effect_Global_OutFlags { 0x6000400 },
 		AE_Effect_Global_OutFlags_2 { 0xA001408 },
-		AE_Effect_Match_Name { "ski.bialkow minColor macOS Fix" },
+		AE_Effect_Match_Name { "ski.bialkow minColor AgX" },
 		AE_Reserved_Info { 0 },
 		AE_Effect_Support_URL { "https://github.com/cbkow/minColorAE" }
 	}

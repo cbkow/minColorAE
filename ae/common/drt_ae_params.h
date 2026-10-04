@@ -74,6 +74,7 @@ struct Row {
     const int  *map;         /* popup choice -> field value, or nullptr for identity */
     int         id;          /* AE parameter id; 0 = auto (see the header comment) */
     float       slo, shi;    /* floats: the slider's drag range when narrower than lo..hi (0, 0 = lo..hi) */
+    float drt::DrtAgxParams::*af;     /* AgX effect: rows bound to the AgX block (popups too: the block is all floats) */
 };
 
 #define DRT_F(field, label, lo, hi, prec) { kFloat, label, &drt::DrtParams::field, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0 }
@@ -100,13 +101,17 @@ struct Row {
 #define DRT_GC(field, label)               { kCheck, label, nullptr, nullptr, nullptr, &drt::DrtGradeParams::field, 0, 1, 0, nullptr, 0, nullptr, 0 }
 #define DRT_GFX(field, label, lo, hi, prec, id) { kFloat, label, nullptr, nullptr, &drt::DrtGradeParams::field, nullptr, lo, hi, prec, nullptr, 0, nullptr, id }
 #define DRT_GH(field, label, lo, hi, prec)  { kFloatHidden, label, nullptr, nullptr, &drt::DrtGradeParams::field, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0 }
+/* AgX-block bindings */
+#define DRT_AF(field, label, lo, hi, prec) { kFloat, label, nullptr, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0, 0, 0, &drt::DrtAgxParams::field }
+#define DRT_AFS(field, label, lo, hi, slo, shi, prec) { kFloat, label, nullptr, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0, slo, shi, &drt::DrtAgxParams::field }
+#define DRT_APM(field, label, str, n, map) { kPopup, label, nullptr, nullptr, nullptr, nullptr, 0, 0, 0, str, n, map, 0, 0, 0, &drt::DrtAgxParams::field }
 
 /* Popup strings. Built once from the core's name tables so the lists can never
    disagree with the kernel's indices. */
 const char *inGamutPopup();
 const char *inOetfPopup(int count);    /* first `count` transfer names */
 const char *workingGamutPopup();
-extern const int kWorkingGamutMap[];   /* curated subset of DRT_IN_* for the Working Gamut popup */
+extern const int kWorkingGamutMap[];   /* curated subset of DRT_IN_* for the Working Gamut popup (a row with this map and 0 choices) */
 extern const int kWorkingGamutCount;
 const char *lookPopup();               /* "Custom|Standard|..." */
 const char *tonescalePopup();          /* "Use Look|Low Contrast|..." */
@@ -355,5 +360,29 @@ static const Row kKneeRows[] = {
     DRT_F(kn_start, "Knee Start",         0.0f,   0.99f,    2),   /* fraction of the target, in PQ; greyed under Auto */
 };
 static const int kKneeRowCount = int(sizeof(kKneeRows) / sizeof(kKneeRows[0]));
+
+/* ------------------------------------------------------------------- AgX */
+/* core/mincolor_agx.h. Linear working gamut in and out, 1.0 = 100 nits. At the defaults
+   (drt_agx_defaults) it is Blender's AgX; Peak above 100 is Blender's HDR construction.
+   The curve rows are darktable's names and ranges, narrowed for dragging. Target Gamut is
+   the display gamut the result must fit (the Output's encoding): Rec.709 for sRGB and
+   Rec.709 deliveries, P3-D65 for P3, Rec.2020 for no rail. A new table: auto ids from 1. */
+static const int kAgxTargetMap[] = { 1, 2, 0 };   /* choice -> DrtAgxParams::target (0 Rec.2020, 1 Rec.709, 2 P3-D65) */
+static const Row kAgxRows[] = {
+    DRT_APM(working_gamut, "Working Gamut", nullptr, 0, kWorkingGamutMap),
+    DRT_APM(target,        "Target Gamut",  "Rec.709 (sRGB)|P3-D65|Rec.2020", 3, kAgxTargetMap),
+    DRT_AFS(peak,           "Peak Luminance (nits)",        100.0f, 10000.0f, 100.0f, 4000.0f, 0),   /* 100 = SDR; drag to 4000, type up to 10000 */
+    DRT_AFS(white_ev,       "White Relative Exposure (EV)",   1.0f,   20.0f,    2.0f,   12.0f, 2),
+    DRT_AFS(black_ev,       "Black Relative Exposure (EV)", -20.0f,   -1.0f,  -16.0f,   -4.0f, 2),
+    DRT_AFS(contrast,       "Contrast",                       0.5f,    6.0f,    1.0f,    4.0f, 2),
+    DRT_AFS(toe_power,      "Toe Power",                      0.2f,    6.0f,    0.5f,    4.0f, 2),
+    DRT_AFS(shoulder_power, "Shoulder Power",                 0.2f,    6.0f,    0.5f,    4.0f, 2),
+    DRT_T("Advanced"),
+    DRT_AF(hue_restore,     "Hue Restore",                    0.0f,    1.0f, 2),
+    DRT_AF(hdr_purity,      "HDR Purity",                     0.0f,    1.0f, 2),   /* greyed at Peak 100 */
+    DRT_AF(outset,          "Purity Restore (Outset)",        0.0f,    2.0f, 2),
+    DRT_E(),
+};
+static const int kAgxRowCount = int(sizeof(kAgxRows) / sizeof(kAgxRows[0]));
 
 } // namespace drtae

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * minColorAE. Copyright (C) 2026 cbkow. Part of a work derived from OpenDRT v1.1.0 by Jed Smith (GPLv3); see NOTICE.
  */
-/* minColor AE — one source, four effects (Input, Output, Grade, macOS Fix).
+/* minColor AE — one source, six effects (Input, Output, Grade, macOS Fix, Knee, AgX).
  *
  * Compiled once per role: -DDRT_ROLE_OUTPUT=1 gives "minColor Output" (picture formation,
  * drt_transform), -DDRT_ROLE_INPUT=1 gives "minColor Input" (media interpretation,
@@ -104,21 +104,29 @@ void dlog(const char *fmt, ...)
 #define DRT_ROWS         drtae::kKneeRows
 #define DRT_ROW_COUNT    drtae::kKneeRowCount
 #define DRT_APPLY(p, v)  drt::drt_knee((p).d, (v))
+#elif DRT_ROLE_AGX
+#define DRT_EFFECT_NAME  "minColor AgX"
+#define DRT_MATCH_NAME   "ski.bialkow minColor AgX"
+#define DRT_KERNEL_NAME  "drt_agx_kernel"
+#define DRT_ROWS         drtae::kAgxRows
+#define DRT_ROW_COUNT    drtae::kAgxRowCount
+#define DRT_APPLY(p, v)  drt::drt_agx((p).a, (v))
 #else
-#error define DRT_ROLE_OUTPUT, DRT_ROLE_INPUT, DRT_ROLE_GRADE, DRT_ROLE_MACFIX or DRT_ROLE_KNEE
+#error define DRT_ROLE_OUTPUT, DRT_ROLE_INPUT, DRT_ROLE_GRADE, DRT_ROLE_MACFIX, DRT_ROLE_KNEE or DRT_ROLE_AGX
 #endif
 
-/* What pre-render hands to render: the DRT block, and for Grade its own block too. */
+/* What pre-render hands to render: the DRT block, and for Grade and AgX their own blocks too. */
 struct DrtRender {
     drt::DrtParams      d;
     drt::DrtGradeParams g;
+    drt::DrtAgxParams   a;
 };
 
 /* Bump the minor version with every parameter-table change (see drt_ae_params.h)
    and mirror it in the PiPLs' AE_Effect_Version: PF_VERSION(major, minor, 0, DEVELOP, 1). */
 #define DRT_MAJOR_VERSION 0
 #define DRT_MINOR_VERSION 1
-#define DRT_BUG_VERSION   2   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges (2026-10-04). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
+#define DRT_BUG_VERSION   3   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges; 3: the AgX (2026-10-04). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
 
 extern "C" {
 DllExport PF_Err EffectMain(PF_Cmd cmd, PF_InData *in_data, PF_OutData *out_data,
@@ -193,10 +201,10 @@ const char *popupString(const Row &r)
     if (r.popup) return r.popup;
     if (r.i == &drt::DrtParams::in_gamut) return drtae::inGamutPopup();
     if (r.i == &drt::DrtParams::in_oetf) return drtae::inOetfPopup(r.choices);
-    if (r.i == &drt::DrtParams::working_gamut) return drtae::workingGamutPopup();
+    if (r.i == &drt::DrtParams::working_gamut || r.af == &drt::DrtAgxParams::working_gamut) return drtae::workingGamutPopup();
     return "";
 }
-int popupChoices(const Row &r) { return r.map ? drtae::kWorkingGamutCount : r.choices; }
+int popupChoices(const Row &r) { return r.map && !r.choices ? drtae::kWorkingGamutCount : r.choices; }
 
 int fieldToChoice(const Row &r, int v)
 {
@@ -226,16 +234,23 @@ DrtRender effectDefaults()
     x.g = drt::drt_grade_defaults();
     /* Knee: an HDR source into an SDR delivery, BT.2390's knee start */
     x.d.kn_src = 1000.0f; x.d.kn_tgt = 100.0f; x.d.kn_auto = 1; x.d.kn_start = 0.5f;
+    x.a = drt::drt_agx_defaults();
     return x;
 }
+
+/* A row's bound value, whichever block it lives in. Popups on the AgX block are floats. */
+float rowFloat(const Row &r, const DrtRender &x) { return r.f ? x.d.*(r.f) : r.gf ? x.g.*(r.gf) : x.a.*(r.af); }
+void setRowFloat(const Row &r, DrtRender &x, float v) { if (r.f) x.d.*(r.f) = v; else if (r.gf) x.g.*(r.gf) = v; else x.a.*(r.af) = v; }
+int rowPopupField(const Row &r, const DrtRender &x) { return r.i ? x.d.*(r.i) : int(std::lround(x.a.*(r.af))); }
+void setRowPopupField(const Row &r, DrtRender &x, int v) { if (r.i) x.d.*(r.i) = v; else x.a.*(r.af) = float(v); }
 
 /* Read a bound row's value out of a checked-out or live PF_ParamDef. */
 void rowFromDef(const Row &r, const PF_ParamDef &d, DrtRender &x)
 {
     switch (r.kind) {
-    case drtae::kFloat: case drtae::kFloatHidden: if (r.f) x.d.*(r.f) = float(d.u.fs_d.value); else x.g.*(r.gf) = float(d.u.fs_d.value); break;
+    case drtae::kFloat: case drtae::kFloatHidden: setRowFloat(r, x, float(d.u.fs_d.value)); break;
     case drtae::kCheck: if (r.i) x.d.*(r.i) = d.u.bd.value ? 1 : 0; else x.g.*(r.gi) = d.u.bd.value ? 1 : 0; break;
-    case drtae::kPopup: x.d.*(r.i) = choiceToField(r, int(d.u.pd.value)); break;
+    case drtae::kPopup: setRowPopupField(r, x, choiceToField(r, int(d.u.pd.value))); break;
     default: break;
     }
 }
@@ -246,7 +261,7 @@ bool rowToDef(const Row &r, const DrtRender &x, PF_ParamDef &d)
     const drt::DrtParams &p = x.d;
     switch (r.kind) {
     case drtae::kFloat: case drtae::kFloatHidden: {
-        const double v = r.f ? double(p.*(r.f)) : double(x.g.*(r.gf));
+        const double v = double(rowFloat(r, x));
         if (d.u.fs_d.value == v) return false;
         d.u.fs_d.value = v;
         return true;
@@ -258,7 +273,7 @@ bool rowToDef(const Row &r, const DrtRender &x, PF_ParamDef &d)
         return true;
     }
     case drtae::kPopup: {
-        const int v = fieldToChoice(r, p.*(r.i));
+        const int v = fieldToChoice(r, rowPopupField(r, x));
         if (d.u.pd.value == v) return false;
         d.u.pd.value = v;
         return true;
@@ -288,8 +303,16 @@ static_assert(kOutFlags2 == 0xA001408, "update AE_Effect_Global_OutFlags_2 in th
 PF_Err About(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF_LayerDef *)
 {
     (void)in_data; /* PF_SPRINTF reaches for it */
+#if DRT_ROLE_AGX
+    PF_SPRINTF(out_data->return_msg, "%s v%d.%d\rAgX by Troy Sobotka; Blender's AgX by Eary Chow et al. Ported in part from darktable's AgX module (GPL-3.0-or-later), modified.\rNot affiliated with or endorsed by Blender or darktable. minColorAE, GPL-3.0.",
+               DRT_EFFECT_NAME, DRT_MAJOR_VERSION, DRT_MINOR_VERSION);
+#elif DRT_ROLE_KNEE
+    PF_SPRINTF(out_data->return_msg, "%s v%d.%d\rA highlight knee after BT.2390 (QCView's). minColorAE, GPL-3.0.",
+               DRT_EFFECT_NAME, DRT_MAJOR_VERSION, DRT_MINOR_VERSION);
+#else
     PF_SPRINTF(out_data->return_msg, "%s v%d.%d\rRendering derived from OpenDRT v1.1.0 by Jed Smith (GPL-3.0), modified.\rNot affiliated with or endorsed by OpenDRT. minColorAE, GPL-3.0.",
                DRT_EFFECT_NAME, DRT_MAJOR_VERSION, DRT_MINOR_VERSION);
+#endif
     return PF_Err_NONE;
 }
 
@@ -308,7 +331,6 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
 {
     PF_ParamDef def;
     const DrtRender dx = effectDefaults();
-    const drt::DrtParams &dflt = dx.d;
 
     int autoId = 0;
     for (int row = 0; row < DRT_ROW_COUNT; ++row) {
@@ -320,21 +342,21 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
             def.ui_flags = PF_PUI_INVISIBLE;
             /* fall through */
         case drtae::kFloat:
-            PF_ADD_FLOAT_SLIDERX(r.name, r.lo, r.hi, r.shi > r.slo ? r.slo : r.lo, r.shi > r.slo ? r.shi : r.hi, double(r.f ? dflt.*(r.f) : dx.g.*(r.gf)), r.prec,
+            PF_ADD_FLOAT_SLIDERX(r.name, r.lo, r.hi, r.shi > r.slo ? r.slo : r.lo, r.shi > r.slo ? r.shi : r.hi, double(rowFloat(r, dx)), r.prec,
                                  PF_ValueDisplayFlag_NONE, 0, id);
             break;
         case drtae::kCheck:
-            PF_ADD_CHECKBOXX(r.name, (r.i ? dflt.*(r.i) : dx.g.*(r.gi)) ? 1 : 0, 0, id);
+            PF_ADD_CHECKBOXX(r.name, (r.i ? dx.d.*(r.i) : dx.g.*(r.gi)) ? 1 : 0, 0, id);
             break;
         case drtae::kPopupHidden:
             def.ui_flags = PF_PUI_INVISIBLE;
-            PF_ADD_POPUP(r.name, popupChoices(r), fieldToChoice(r, dflt.*(r.i)), popupString(r), id);
+            PF_ADD_POPUP(r.name, popupChoices(r), fieldToChoice(r, rowPopupField(r, dx)), popupString(r), id);
             break;
         case drtae::kPopup:
 #if DRT_ROLE_INPUT
             if (r.i == &drt::DrtParams::in_oetf) def.flags = PF_ParamFlag_SUPERVISE;   /* an inverse entry sets Peak Luminance */
 #endif
-            PF_ADD_POPUP(r.name, popupChoices(r), fieldToChoice(r, dflt.*(r.i)), popupString(r), id);
+            PF_ADD_POPUP(r.name, popupChoices(r), fieldToChoice(r, rowPopupField(r, dx)), popupString(r), id);
             break;
         case drtae::kTopic:
             def.flags = PF_ParamFlag_START_COLLAPSED;
@@ -406,6 +428,9 @@ DrtRender liveParams(PF_ParamDef *params[])
     x.d = drt::drt_derive(x.d);
 #if DRT_ROLE_GRADE
     x.g = drt::drt_grade_derive(x.g, x.d);
+#endif
+#if DRT_ROLE_AGX
+    x.a = drt::drt_agx_derive(x.a);
 #endif
     return x;
 }
@@ -598,7 +623,7 @@ PF_Err UserChangedParam(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *p
    Input: the look rows mean nothing unless an inverse transfer is selected, so
    grey them out otherwise. AE sends PF_Cmd_UPDATE_PARAMS_UI whenever a param
    changes (PF_OutFlag_SEND_UPDATE_PARAMS_UI); only flags that differ are written back. */
-#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT || DRT_ROLE_KNEE
+#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT || DRT_ROLE_KNEE || DRT_ROLE_AGX
 static bool rowGreyed(const Row &r, int k, bool grey)
 {
     if (r.kind == drtae::kEndTopic || r.kind == drtae::kTopic || r.kind == drtae::kTopicOpen) return false;
@@ -615,6 +640,9 @@ static bool rowGreyed(const Row &r, int k, bool grey)
 #elif DRT_ROLE_KNEE
     (void)k;
     return grey && r.kind == drtae::kFloat && r.f == &drt::DrtParams::kn_start;   /* Knee Start greys under Auto */
+#elif DRT_ROLE_AGX
+    (void)k;
+    return grey && r.kind == drtae::kFloat && r.af == &drt::DrtAgxParams::hdr_purity;   /* HDR Purity greys at Peak 100 (SDR) */
 #else
     return k >= drtae::kInputLookRowsFrom && grey;
 #endif
@@ -623,7 +651,7 @@ static bool rowGreyed(const Row &r, int k, bool grey)
 
 PF_Err UpdateParamsUI(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[])
 {
-#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT || DRT_ROLE_KNEE
+#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT || DRT_ROLE_KNEE || DRT_ROLE_AGX
     bool grey = false;
 #if DRT_ROLE_OUTPUT
     int viewRow = -1;
@@ -634,6 +662,9 @@ PF_Err UpdateParamsUI(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *par
 #elif DRT_ROLE_KNEE
     for (int k = 0; k < DRT_ROW_COUNT; ++k)
         if (DRT_ROWS[k].kind == drtae::kCheck && DRT_ROWS[k].i == &drt::DrtParams::kn_auto) grey = params[paramIndex(k)]->u.bd.value != 0;
+#elif DRT_ROLE_AGX
+    for (int k = 0; k < DRT_ROW_COUNT; ++k)
+        if (DRT_ROWS[k].kind == drtae::kFloat && DRT_ROWS[k].af == &drt::DrtAgxParams::peak) grey = params[paramIndex(k)]->u.fs_d.value <= 100.0;
 #else
     grey = choiceToField(DRT_ROWS[1], int(params[paramIndex(1)]->u.pd.value)) < DRT_OETF_INVERSE_FIRST;
 #endif
@@ -696,6 +727,9 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
 #endif
 #if DRT_ROLE_KNEE
     p->d = drt::drt_knee_derive(p->d);
+#endif
+#if DRT_ROLE_AGX
+    p->a = drt::drt_agx_derive(p->a);
 #endif
 
     extra->output->pre_render_data = p;
@@ -870,7 +904,11 @@ PF_Err RenderGPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
         h.height = in->height;
         id<MTLBuffer> pbuf = [[device newBufferWithBytes:&p->d length:sizeof(drt::DrtParams) options:MTLResourceStorageModeShared] autorelease];
         id<MTLBuffer> hbuf = [[device newBufferWithBytes:&h length:sizeof h options:MTLResourceStorageModeShared] autorelease];
+#if DRT_ROLE_AGX
+        id<MTLBuffer> gbuf = [[device newBufferWithBytes:&p->a length:sizeof(drt::DrtAgxParams) options:MTLResourceStorageModeShared] autorelease];   /* the AgX block at buffer(4) */
+#else
         id<MTLBuffer> gbuf = [[device newBufferWithBytes:&p->g length:sizeof(drt::DrtGradeParams) options:MTLResourceStorageModeShared] autorelease];
+#endif
 
         id<MTLCommandBuffer> cb = [queue commandBuffer];
         id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
