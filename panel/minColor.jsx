@@ -51,7 +51,11 @@
     win = new Window("palette", "minColor", undefined, { resizeable: true });
     $.global.__minColorAEWin = win;   /* a DoScript-launched palette needs a reference to outlive the script */
   }
-  win.orientation = "column"; win.alignChildren = ["fill", "top"]; win.spacing = 6; win.margins = 10;
+  win.orientation = "column"; win.alignChildren = ["fill", "top"]; win.spacing = 0; win.margins = 10;
+  /* everything sits in one top-aligned group: a docked Panel otherwise centres its
+     children vertically in whatever height the dock gives it */
+  var body = win.add("group");
+  body.orientation = "column"; body.alignChildren = ["fill", "top"]; body.alignment = ["fill", "top"]; body.spacing = 6;
 
   // ---- file helpers ------------------------------------------------------------
   function readText(file) {
@@ -195,7 +199,9 @@
      adding the effect first in the stack when the layer has none. Shows the plan, then
      applies it as one undo group. Reports every selected layer, changed or not. */
   function applyIn() {
-    var out = [];
+    var out = notInstalled("minColor Input");
+    if (out) return out;
+    out = [];
     var comp = app.project.activeItem;
     if (!(comp instanceof CompItem)) { out.push("Open a comp and select footage layers first; nothing changed."); return out; }
     var sel = comp.selectedLayers;
@@ -367,6 +373,17 @@
     return out;
   }
 
+  /* Is the effect installed in this After Effects? Without it, addProperty() still
+     succeeds when the project already holds instances of that effect (AE keeps them as
+     placeholders, settings intact) and the panel would add placeholders that do nothing.
+     The Effect menu entry is the fast, reliable test: findMenuCommandId is 0 when the
+     effect did not load (iterating app.effects takes seconds). */
+  function notInstalled(effectName) {
+    return app.findMenuCommandId(effectName) === 0 ?
+      [effectName + " is not installed in this After Effects (no Effect > minColor > " + effectName + "); nothing changed. " +
+       "Layers that already carry it keep their settings and come back when it is installed."] : null;
+  }
+
   // ---- layers ------------------------------------------------------------------------
   function hasEffect(layer, matchName) {
     var parade;
@@ -386,7 +403,9 @@
      re-encodes the Output's pixels, so it must stay above). One Output per comp: an
      existing one is reported, not duplicated. */
   function addOutput() {
-    var out = [];
+    var out = notInstalled("minColor Output");
+    if (out) return out;
+    out = [];
     var comp = app.project.activeItem;
     if (!(comp instanceof CompItem)) { out.push("Open or select a comp first; nothing added."); return out; }
     var existing = findLayers(comp, MN_OUTPUT);
@@ -453,21 +472,21 @@
     return b;
   }
 
-  var bIn = flatButton(win, "Apply In", { primary: true,
+  var bIn = flatButton(body, "Apply In", { primary: true,
     tip: "Sets minColor Input on the selected footage layers from minColor/in.json, by file extension\n" +
          "(adds the effect first in the stack where missing). Shows the changes before applying." });
-  var bRules = flatButton(win, "In Rules\u2026", {
+  var bRules = flatButton(body, "In Rules\u2026", {
     tip: "Edit this project's In rules (minColor/in.json): which Input settings each file extension gets" });
-  var bAdd = flatButton(win, "Add Output", { primary: true,
+  var bAdd = flatButton(body, "Add Output", { primary: true,
     tip: "Adjustment layer with minColor Output at the top of the active comp (under a macOS Fix layer if there is one)" });
-  var bShim = flatButton(win, "Fix OCIO", {
+  var bShim = flatButton(body, "Fix OCIO", {
     tip: "Saves the project, sets its OCIO config to the viewport shim in minColor/ with working space\n" +
          "minColor Output, and reopens it (a backup goes in minColor/; undo history is cleared).\n" +
          "Turns OCIO on: on an Adobe-engine project that changes how footage is interpreted.\n" +
          "Press again after moving the project." });
-  var report = win.add("statictext", undefined, "", { multiline: true });
+  var report = body.add("statictext", undefined, "", { multiline: true });
   report.preferredSize = [240, 96];
-  var ver = win.add("statictext", undefined, "minColor " + VERSION);
+  var ver = body.add("statictext", undefined, "minColor " + VERSION);
   ver.graphics.foregroundColor = ver.graphics.newPen(ver.graphics.PenType.SOLID_COLOR, [0.55, 0.55, 0.55, 1], 1);
 
   function run(fn) {

@@ -83,6 +83,24 @@ step, and reports every selected layer, including the ones it skipped and why.
 Gamut / Transfer / Range from the Input's own menus; add, remove, reorder, reset to
 the defaults) and saves `minColor/in.json`.
 
+### When pieces are missing
+
+Measured on AE 26.5 with a project that uses all of it:
+
+- **The `minColor/` folder (the OCIO config) is missing**, e.g. a project copied
+  without it: AE silently falls back to its Adobe colour engine. The minColor
+  effects still render; only the viewer's macOS correction is gone. If the folder
+  comes back before the project is saved, the project opens on OCIO again by
+  itself. If the project is saved in the fallback, the OCIO setting is lost:
+  press **Fix OCIO** (it writes a fresh `minColor/`).
+- **The minColor effects are not installed**: the project opens, every instance
+  is kept with all of its settings and renders as if it were off, and installing
+  the effects brings them back unchanged, even after saving without them. The
+  panel's Apply In and Add Output refuse to run without the effect they add
+  (AE would otherwise add placeholders that do nothing).
+- **The panel is not installed**: nothing changes; it only adds effects and
+  writes files.
+
 ## License
 
 GPL-3.0-only (see [LICENSE](LICENSE)). Copyright (C) 2026 cbkow. The rendering
