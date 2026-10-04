@@ -39,3 +39,16 @@ add_custom_target(install_panel
   COMMAND ${CMAKE_COMMAND} -E echo "installed ${MINCOLOR_PANEL_DIR}/${MINCOLOR_PANEL_NAME}"
   DEPENDS mincolor_panel
   VERBATIM)
+
+# The animation presets (presets/ae/minColor/*.ffx: mCin_* set minColor Input, mCout_*
+# minColor Output, each the whole effect, all on working space ACEScg). AE lists the
+# user presets folder under Effects & Presets > Animation Presets; refresh the list
+# (or restart AE) after installing.
+set(MINCOLOR_PRESETS_DIR "$ENV{HOME}/Documents/Adobe/After Effects 2026/User Presets/minColor"
+    CACHE PATH "Install directory for the animation presets")
+file(GLOB _ffx CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/presets/ae/minColor/*.ffx")
+add_custom_target(install_presets
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${MINCOLOR_PRESETS_DIR}"
+  COMMAND ${CMAKE_COMMAND} -E copy ${_ffx} "${MINCOLOR_PRESETS_DIR}"
+  COMMAND ${CMAKE_COMMAND} -E echo "installed the animation presets to ${MINCOLOR_PRESETS_DIR}"
+  VERBATIM)
