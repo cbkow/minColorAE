@@ -16,9 +16,13 @@
 #     CIE 1931 colour-matching functions: most lie outside ACEScg, so the EXR carries
 #     negative values, the hardest case for every gamut rail downstream.
 # The blend file's working space is ACEScg, so the EXRs are linear ACEScg (minColor's
-# default working space). Renders: Cycles on the GPU, 1920x1080, 24 fps, frames 1-120, no
-# denoiser (it clamps negatives), 1024 adaptive samples instead; on the farm through
-# MinRender's Blender 5.2 template (multilayer EXR).
+# default working space). Renders: Cycles on the GPU, 1920x1080, 24 fps, on the farm through
+# MinRender's Blender 5.2 template (multilayer EXR). Two scenes sharing every object:
+#   "minColor proof"        frames 1-120, 2048 samples, denoised: the main plate (clean,
+#                           HDR; the denoiser takes non-negative light only, so the lasers
+#                           land on the edge of ACEScg there);
+#   "minColor proof (raw)"  frames 1-24, the same without the denoiser: the lasers keep
+#                           their negative, out-of-ACEScg values (and the plate its noise).
 
 import math
 import sys
@@ -227,10 +231,10 @@ r.use_motion_blur = True
 r.motion_blur_shutter = 0.5
 cy = sc.cycles
 cy.device = "GPU"
-cy.samples = 1024
+cy.samples = 2048
 cy.use_adaptive_sampling = True
 cy.adaptive_threshold = 0.004
-cy.use_denoising = False   # OIDN takes non-negative light only: it clipped the lasers' out-of-ACEScg channels to 0
+cy.use_denoising = True    # the main plate; OIDN takes non-negative light only, so the raw scene below keeps the negatives
 cy.max_bounces = 8
 prefs = bpy.context.preferences.addons["cycles"].preferences
 prefs.compute_device_type = "METAL" if sys.platform == "darwin" else "OPTIX"
@@ -243,6 +247,18 @@ im.color_depth = "32"
 im.exr_codec = "ZIP"
 im.color_mode = "RGBA"
 r.filepath = "//exr/minColor_proof_####"
+
+# the raw plate: a linked copy of the scene (same objects), no denoiser, 24 frames
+main = sc
+bpy.ops.scene.new(type="LINK_COPY")
+raw = bpy.context.scene
+raw.name = "minColor proof (raw)"
+raw.cycles.use_denoising = False
+raw.frame_end = 24
+raw.render.filepath = "//exr_raw/minColor_proof_raw_####"
+for w in bpy.context.window_manager.windows:   # none in background mode
+    w.scene = main
+sc = main
 
 for nm, rgb in lasers:
     print(f"laser {nm} nm ACEScg {rgb[0]:+.3f} {rgb[1]:+.3f} {rgb[2]:+.3f}")
