@@ -73,11 +73,13 @@
     win = new Window("palette", "minColor", undefined, { resizeable: true });
     $.global.__minColorAEWin = win;   /* a DoScript-launched palette needs a reference to outlive the script */
   }
-  win.orientation = "column"; win.alignChildren = ["fill", "top"]; win.spacing = 0; win.margins = 10;
-  /* everything sits in one top-aligned group: a docked Panel otherwise centres its
-     children vertically in whatever height the dock gives it */
+  /* Layout as the Union Project Manager panel it docks beside: 15 margins, 10 between
+     rows, 30 px pills, the block centred vertically in the dock. Everything sits in
+     one group so it centres as a unit; the report box has a fixed size, so changing
+     text never moves the buttons. */
+  win.orientation = "column"; win.alignChildren = ["fill", "center"]; win.spacing = 0; win.margins = 15;
   var body = win.add("group");
-  body.orientation = "column"; body.alignChildren = ["fill", "top"]; body.alignment = ["fill", "top"]; body.spacing = 6;
+  body.orientation = "column"; body.alignChildren = ["fill", "top"]; body.alignment = ["fill", "center"]; body.spacing = 10;
 
   // ---- file helpers ------------------------------------------------------------
   function readText(file) {
@@ -510,12 +512,13 @@
 
   // ---- UI ----------------------------------------------------------------------------
   /* Pill buttons in the AE-native (Spectrum 2) theme: an accent for the main action,
-     a quiet outline for the rest. Fills only: AE remaps non-neutral pens. */
+     a quiet outline for the rest. Fills only: AE remaps non-neutral pens. Height 30
+     here (the theme's default is 24; the Union Project Manager uses 30). */
   function flatButton(parent, label, opts) {
     opts = opts || {};
     var b = parent.add("iconbutton", undefined, undefined, { style: "toolbutton" });
     b.textLabel = label; b.hov = false; b.dn = false;
-    b.preferredSize.height = 24; b.alignment = ["fill", "center"];
+    b.preferredSize.height = opts.height || 30; b.alignment = ["fill", "center"];
     if (opts.tip) b.helpTip = opts.tip;
     b.onDraw = function () {
       var g = this.graphics, s = this.size;
