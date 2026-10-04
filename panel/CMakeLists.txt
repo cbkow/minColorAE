@@ -41,7 +41,7 @@ add_custom_target(install_panel
   VERBATIM)
 
 # The animation presets (presets/ae/minColor/*.ffx: mCin_* set minColor Input, mCout_*
-# minColor Output, each the whole effect, all on working space ACEScg). AE lists the
+# minColor Output, mCagx_* minColor AgX, each the whole effect, all on working space ACEScg). AE lists the
 # user presets folder under Effects & Presets > Animation Presets; refresh the list
 # (or restart AE) after installing.
 set(MINCOLOR_PRESETS_DIR "$ENV{HOME}/Documents/Adobe/After Effects 2026/User Presets/minColor"
