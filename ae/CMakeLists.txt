@@ -137,8 +137,13 @@ set(DRT_AE_PLUGIN_DIR "C:/Program Files/Adobe/Common/Plug-ins/7.0/MediaCore/minC
     CACHE PATH "Install directory for the AE plug-ins")
 find_program(PIPL_TOOL PiPLtool PATHS "${MINCOLOR_AE_SDK}/Examples/Resources" NO_DEFAULT_PATH REQUIRED)
 
-set(_gpu_src common/drt_ae_gpu_none.cpp)
-message(STATUS "ae/: no GPU backend on Windows yet; the effects render on the CPU")
+if(CMAKE_CUDA_COMPILER)
+  set(_gpu_src common/drt_ae_gpu_cuda.cpp common/drt_ae_kernels.cu)
+  message(STATUS "ae/: CUDA backend (${CMAKE_CUDA_COMPILER_VERSION}, architectures ${DRT_CUDA_ARCHS})")
+else()
+  set(_gpu_src common/drt_ae_gpu_none.cpp)
+  message(STATUS "ae/: no CUDA toolkit; the effects render on the CPU")
+endif()
 
 function(drt_ae_effect name role outname subdir pipl)
   # PiPL: preprocess the .r, PiPLtool it, preprocess again into a .rc (the SDK samples' custom step)
@@ -159,7 +164,12 @@ function(drt_ae_effect name role outname subdir pipl)
   target_compile_definitions(${name} PRIVATE ${role}=1 MSWindows WIN32 _WINDOWS NOMINMAX)
   target_include_directories(${name} PRIVATE "${_gen}" common "${_ae_h}" "${_ae_h}/SP" "${_ae_u}" "${MINCOLOR_AE_SDK}/Examples/Resources")
   target_link_libraries(${name} PRIVATE drt_core)
-  target_compile_options(${name} PRIVATE /W3 /wd4100 /wd4244 /wd4996)   # Adobe's headers and utils are not ours to make warning-clean
+  # Adobe's headers and utils are not ours to make warning-clean
+  target_compile_options(${name} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:/W3 /wd4100 /wd4244 /wd4996> $<$<COMPILE_LANGUAGE:CUDA>:--fmad=false>)
+  if(CMAKE_CUDA_COMPILER)
+    target_link_libraries(${name} PRIVATE CUDA::cudart_static)
+    set_target_properties(${name} PROPERTIES CUDA_ARCHITECTURES "${DRT_CUDA_ARCHS}")
+  endif()
   set_target_properties(${name} PROPERTIES OUTPUT_NAME "${outname}" PREFIX "" SUFFIX ".aex")
   add_custom_target(install_${name}
     COMMAND ${CMAKE_COMMAND} -E make_directory "${DRT_AE_PLUGIN_DIR}"

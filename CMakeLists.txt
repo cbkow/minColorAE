@@ -4,6 +4,16 @@ cmake_minimum_required(VERSION 3.20)
 project(minColorAE VERSION 0.1.3 LANGUAGES C CXX)
 if(APPLE)
   enable_language(OBJCXX)   # the Metal backend (ae/common/drt_ae_gpu_metal.mm)
+elseif(WIN32)
+  # the CUDA backend, when the toolkit is installed (nvcc + the static runtime; no Nsight needed)
+  include(CheckLanguage)
+  check_language(CUDA)
+  if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    find_package(CUDAToolkit REQUIRED)
+    # Turing and up: PTX for 7.5 (the driver JITs it for anything newer), SASS for Ampere, Ada, Blackwell
+    set(DRT_CUDA_ARCHS "75-virtual;86-real;89-real;120-real" CACHE STRING "CUDA architectures for the kernels")
+  endif()
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -16,7 +26,7 @@ endif()
 # No fast-math anywhere: the probe compares the core against the upstream DCTL to
 # 1e-5, and the whole point of the shared core is that hosts get the same floats.
 if(MSVC)
-  add_compile_options(/fp:precise /W4)
+  add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/fp:precise> $<$<COMPILE_LANGUAGE:C,CXX>:/W4>)   # not to nvcc
 else()
   add_compile_options(-fno-fast-math -Wall -Wextra)
 endif()
@@ -50,6 +60,16 @@ add_test(NAME probe_core COMMAND probe_core)
 add_test(NAME ocio_current
          COMMAND ${CMAKE_COMMAND} -DGEN=$<TARGET_FILE:make_ocio> -DOUT=${CMAKE_CURRENT_BINARY_DIR}/mincolor.ocio
                  -DREF=${CMAKE_CURRENT_SOURCE_DIR}/ocio/mincolor.ocio -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_generated.cmake)
+
+# ---- CUDA kernels vs the core (Windows with the CUDA toolkit) ----------------
+if(CMAKE_CUDA_COMPILER)
+  add_executable(check_cuda tools/check_cuda.cpp ae/common/drt_ae_kernels.cu)
+  target_include_directories(check_cuda PRIVATE ae/common)
+  target_link_libraries(check_cuda PRIVATE drt_core CUDA::cudart_static)
+  set_target_properties(check_cuda PROPERTIES CUDA_ARCHITECTURES "${DRT_CUDA_ARCHS}")
+  target_compile_options(check_cuda PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--fmad=false>)
+  add_test(NAME check_cuda COMMAND check_cuda)
+endif()
 
 # ---- After Effects plugins (needs the Adobe SDK; skipped when absent) --------
 add_subdirectory(ae)
