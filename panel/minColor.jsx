@@ -553,20 +553,51 @@
     return b;
   }
 
+  /* Section headers as the Union Project Manager's: an 18 px owner-drawn glyph (the
+     minColor icon family, neutral grey: AE remaps hues), a bold label, a hairline rule. */
+  var IC = [0.72, 0.72, 0.72, 1];
+  function pen(g, w) { return g.newPen(g.PenType.SOLID_COLOR, IC, w || 1.4); }
+  function brush(g) { return g.newBrush(g.BrushType.SOLID_COLOR, IC); }
+  var GLYPH = {
+    gear: function (g) {   /* the project and its settings */
+      g.newPath(); g.ellipsePath(5, 5, 8, 8); g.strokePath(pen(g, 1.6));
+      for (var i = 0; i < 8; i++) { var a = i * Math.PI / 4, c = Math.cos(a), sn = Math.sin(a);
+        g.newPath(); g.moveTo(9 + c * 4.6, 9 + sn * 4.6); g.lineTo(9 + c * 7.2, 9 + sn * 7.2); g.strokePath(pen(g, 1.6)); }
+      g.newPath(); g.ellipsePath(7.8, 7.8, 2.4, 2.4); g.fillPath(brush(g));
+    },
+    bars: function (g) {   /* a layer stack */
+      g.newPath(); g.rectPath(3, 4.4, 10, 2.4); g.fillPath(brush(g));
+      g.newPath(); g.rectPath(6, 7.8, 9, 2.4); g.fillPath(brush(g));
+      g.newPath(); g.rectPath(4, 11.2, 7, 2.4); g.fillPath(brush(g));
+    }
+  };
+  function themeHeader(parent, title, glyph) {
+    var hdr = parent.add("group"); hdr.spacing = 6; hdr.alignChildren = ["left", "center"]; hdr.alignment = ["fill", "top"];
+    var ic = hdr.add("iconbutton", undefined, undefined, { style: "toolbutton" }); ic.preferredSize = [18, 18];
+    ic.onDraw = function () { glyph(this.graphics); };
+    var st = hdr.add("statictext", undefined, title);
+    try { st.graphics.font = ScriptUI.newFont("dialog", "BOLD", 11); } catch (eH) {}
+    var ln = hdr.add("panel"); ln.alignment = ["fill", "center"]; ln.preferredSize.height = 2; ln.minimumSize.width = 20;
+    return hdr;
+  }
+
+  themeHeader(body, "Project", GLYPH.gear);
+  var bFix = flatButton(body, "Fix OCIO", {
+    tip: "Saves the project, sets its OCIO config to minColor/mincolor.ocio with the working space you\n" +
+         "choose (or Unmanaged), and reopens it (a backup goes in minColor/; undo history is cleared).\n" +
+         "Turns OCIO on: on an Adobe-engine project that changes how footage is interpreted.\n" +
+         "Press again after moving the project." });
+  var bRules = flatButton(body, "In Rules\u2026", {
+    tip: "Edit this project's In rules (minColor/in.json): which Input settings each file extension gets" });
+  var gap = body.add("group"); gap.preferredSize.height = 4;   /* a little more air between sections */
+  themeHeader(body, "Layers", GLYPH.bars);
   var bIn = flatButton(body, "Apply In", { primary: true,
     tip: "Sets minColor Input on the selected footage layers from minColor/in.json, by file extension\n" +
          "(adds the effect first in the stack where missing). Shows the changes before applying." });
-  var bRules = flatButton(body, "In Rules\u2026", {
-    tip: "Edit this project's In rules (minColor/in.json): which Input settings each file extension gets" });
   var bAdd = flatButton(body, "Add Output", { primary: true,
     tip: "Adjustment layer with minColor Output at the top of the active comp (under a macOS Fix layer if there is one)" });
-  var bFix = flatButton(body, "Fix OCIO", {
-    tip: "Saves the project, sets its OCIO config to minColor/mincolor.ocio with the working space you\n" +
-         "choose, and reopens it (a backup goes in minColor/; undo history is cleared).\n" +
-         "Turns OCIO on: on an Adobe-engine project that changes how footage is interpreted.\n" +
-         "Press again after moving the project." });
   var report = body.add("statictext", undefined, "", { multiline: true });
-  report.preferredSize = [240, 96];
+  report.preferredSize = [240, 60];
   var ver = body.add("statictext", undefined, "minColor " + VERSION);
   ver.graphics.foregroundColor = ver.graphics.newPen(ver.graphics.PenType.SOLID_COLOR, [0.55, 0.55, 0.55, 1], 1);
 
