@@ -28,12 +28,15 @@ namespace drt {
 #include "opendrt_kernel.h"
 #include "opendrt_grade.h"
 #include "mincolor_knee.h"
+#include "mincolor_agx.h"
 
 static_assert(sizeof(DrtParams) == DRT_PARAMS_SCALARS * 4,
               "DrtParams must stay a flat block of 4-byte scalars, count a multiple of 4 "
               "(see opendrt_params.h). Pad with the reserved_* slots.");
 static_assert(sizeof(DrtGradeParams) == DRT_GRADE_SCALARS * 4,
               "DrtGradeParams must stay a flat block of 4-byte scalars, count a multiple of 4.");
+static_assert(sizeof(DrtAgxParams) == DRT_AGX_SCALARS * 4 && DRT_AGX_SCALARS % 4 == 0,
+              "DrtAgxParams must stay a flat block of 4-byte scalars, count a multiple of 4.");
 
 /* One pixel through a derived parameter block. */
 inline void apply(const DrtParams &p, const float in[3], float out[3])
@@ -47,3 +50,4 @@ inline void apply(const DrtParams &p, const float in[3], float out[3])
 } // namespace drt
 
 #include "opendrt_presets.h"
+#include "mincolor_agx_host.h"

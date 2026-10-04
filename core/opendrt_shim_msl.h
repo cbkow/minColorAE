@@ -33,8 +33,10 @@
 #define _sqrtf(a)     sqrt((a))
 #define _fabs(a)      fabs((a))
 #define _fmod(a, b)   fmod((a), (b))
+#define _floorf(a)    floor((a))
 #define _atan2f(a, b) atan2((a), (b))
 #define _fminf(a, b)  fmin((a), (b))
 #define _fmaxf(a, b)  fmax((a), (b))
 
 #define DRT_PARAMS_ARG constant DrtParams &
+#define DRT_AGX_ARG constant DrtAgxParams &

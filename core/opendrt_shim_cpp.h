@@ -58,8 +58,10 @@ static inline float _log2f(float a)          { return std::log2(a); }
 static inline float _sqrtf(float a)          { return std::sqrt(a); }
 static inline float _fabs(float a)           { return std::fabs(a); }
 static inline float _fmod(float a, float b)  { return std::fmod(a, b); }
+static inline float _floorf(float a)         { return std::floor(a); }
 static inline float _atan2f(float a, float b){ return std::atan2(a, b); }
 static inline float _fminf(float a, float b) { return std::fmin(a, b); }
 static inline float _fmaxf(float a, float b) { return std::fmax(a, b); }
 
 #define DRT_PARAMS_ARG const DrtParams &
+#define DRT_AGX_ARG const DrtAgxParams &

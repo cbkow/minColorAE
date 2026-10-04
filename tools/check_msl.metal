@@ -13,6 +13,7 @@ using namespace metal;
 #include "opendrt_kernel.h"
 #include "opendrt_grade.h"
 #include "mincolor_knee.h"
+#include "mincolor_agx.h"
 
 kernel void drt_check_grade(texture2d<float, access::read>  src [[texture(0)]],
                             texture2d<float, access::write> dst [[texture(1)]],
@@ -44,6 +45,16 @@ kernel void drt_check_knee(texture2d<float, access::read>  src [[texture(0)]],
     if (gid.x >= dst.get_width() || gid.y >= dst.get_height()) return;
     const float4 c = src.read(gid);
     dst.write(float4(drt_knee(p, c.rgb), c.a), gid);
+}
+
+kernel void drt_check_agx(texture2d<float, access::read>  src [[texture(0)]],
+                          texture2d<float, access::write> dst [[texture(1)]],
+                          constant DrtAgxParams &a            [[buffer(0)]],
+                          uint2 gid                           [[thread_position_in_grid]])
+{
+    if (gid.x >= dst.get_width() || gid.y >= dst.get_height()) return;
+    const float4 c = src.read(gid);
+    dst.write(float4(drt_agx(a, c.rgb), c.a), gid);
 }
 
 kernel void drt_check_input(texture2d<float, access::read>  src [[texture(0)]],

@@ -14,5 +14,6 @@ the development-only probe effect and After Effects driving scripts were left
 behind. Projects saved with the earlier effect names do not open with these.
 
 Third-party content: the unmodified OpenDRT v1.1.0 DCTL (`upstream/`, GPL-3.0,
-Jed Smith). See NOTICE. Nothing else from third parties is included; the
+Jed Smith), and code ported from darktable's AgX module (GPL-3.0-or-later) in
+`core/mincolor_agx.*` (2026-10-04, see CHANGES-AGX.md). See NOTICE. Nothing else from third parties is included; the
 Adobe After Effects SDK is a separate, external build dependency.

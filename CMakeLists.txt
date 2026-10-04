@@ -19,7 +19,7 @@ else()
 endif()
 
 # ---- the core: headers + preset tables -------------------------------------
-add_library(drt_core STATIC core/opendrt_presets.cpp)
+add_library(drt_core STATIC core/opendrt_presets.cpp core/mincolor_agx.cpp)
 target_include_directories(drt_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/core)
 
 # ---- the reference: upstream DCTL compiled as C++ --------------------------
@@ -70,7 +70,7 @@ if(APPLE)
         OUTPUT ${MSL_AIR}
         COMMAND ${XCRUN} -sdk macosx metal -c ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_msl.metal
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/core -o ${MSL_AIR}
-        DEPENDS tools/check_msl.metal core/opendrt_shim_msl.h core/opendrt_params.h core/opendrt_kernel.h core/mincolor_knee.h
+        DEPENDS tools/check_msl.metal core/opendrt_shim_msl.h core/opendrt_params.h core/opendrt_kernel.h core/mincolor_knee.h core/mincolor_agx.h
         COMMENT "Compiling the core as Metal (dialect check)")
       add_custom_target(check_msl ALL DEPENDS ${MSL_AIR})
       add_test(NAME check_msl COMMAND ${XCRUN} -sdk macosx metal -c ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_msl.metal

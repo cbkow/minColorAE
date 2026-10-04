@@ -642,6 +642,88 @@ int main()
         ok = ok && good;
     }
 
+    /* 13. AgX (core/mincolor_agx.h; darktable's port + Blender's HDR method). Against the
+           research harness that measured Blender 5.2 (SDR "AgX" median 0.05 %, HDR 1000
+           neutrals within 0.3 %): reference outputs, working-gamut invariance, the Rec.709
+           rail stays inside Rec.709, grey holds as Peak rises, monotonic, the top reaches Peak. */
+    {
+        struct Ref { float peak; int target; float in[3]; float out[3]; };
+        const Ref refs[] = {
+            {100.0f, 0, {0.18f, 0.18f, 0.18f}, {0.18f, 0.18f, 0.18f}},
+            {100.0f, 2, {0.18f, 0.18f, 0.18f}, {0.18f, 0.18f, 0.18f}},
+            {100.0f, 0, {16.0f, 16.0f, 16.0f}, {0.998045f, 0.998045f, 0.998045f}},
+            {100.0f, 2, {16.0f, 16.0f, 16.0f}, {0.998045f, 0.998045f, 0.998045f}},
+            {100.0f, 0, {0.6f, 0.25f, 0.1f}, {0.4417672f, 0.233894f, 0.1214688f}},
+            {100.0f, 2, {0.6f, 0.25f, 0.1f}, {0.4417672f, 0.233894f, 0.1214688f}},
+            {100.0f, 0, {2.0f, 0.05f, 0.05f}, {0.7162421f, 0.2299167f, 0.2004962f}},
+            {100.0f, 2, {2.0f, 0.05f, 0.05f}, {0.7162421f, 0.2299167f, 0.2004962f}},
+            {100.0f, 0, {0.05f, 0.9f, 0.1f}, {0.09160981f, 0.5326356f, 0.1144369f}},
+            {100.0f, 2, {0.05f, 0.9f, 0.1f}, {0.120795f, 0.5441058f, 0.1427052f}},
+            {1000.0f, 0, {0.18f, 0.18f, 0.18f}, {0.18f, 0.18f, 0.18f}},
+            {1000.0f, 2, {0.18f, 0.18f, 0.18f}, {0.18f, 0.18f, 0.18f}},
+            {1000.0f, 0, {16.0f, 16.0f, 16.0f}, {9.957345f, 9.957345f, 9.957345f}},
+            {1000.0f, 2, {16.0f, 16.0f, 16.0f}, {9.957345f, 9.957345f, 9.957345f}},
+            {1000.0f, 0, {0.6f, 0.25f, 0.1f}, {0.7085297f, 0.3091632f, 0.1271389f}},
+            {1000.0f, 2, {0.6f, 0.25f, 0.1f}, {0.7085297f, 0.3091632f, 0.1271389f}},
+            {1000.0f, 0, {2.0f, 0.05f, 0.05f}, {3.06159f, 0.4252596f, 0.3100939f}},
+            {1000.0f, 2, {2.0f, 0.05f, 0.05f}, {3.06159f, 0.4252596f, 0.3100939f}},
+            {1000.0f, 0, {0.05f, 0.9f, 0.1f}, {0.09835039f, 1.055368f, 0.1388004f}},
+            {1000.0f, 2, {0.05f, 0.9f, 0.1f}, {0.2468408f, 1.113634f, 0.2834773f}},
+        };
+        bool good = true; double worst = 0.0;
+        for (const Ref &r : refs) {
+            drt::DrtAgxParams a = drt::drt_agx_defaults();
+            a.working_gamut = DRT_IN_REC2020; a.target = float(r.target); a.peak = r.peak;
+            a = drt::drt_agx_derive(a);
+            const drt::float3 o = drt::drt_agx(a, drt::make_float3(r.in[0], r.in[1], r.in[2]));
+            const double m = std::max(1.0, double(std::max(r.out[0], std::max(r.out[1], r.out[2]))));
+            worst = std::max(worst, std::max({std::fabs(double(o.x - r.out[0])), std::fabs(double(o.y - r.out[1])), std::fabs(double(o.z - r.out[2]))}) / m);
+        }
+        if (worst > 2e-5) { std::printf("   agx vs reference %.2e\n", worst); good = false; }
+
+        /* working gamut: the same light entered as ACEScg and as Rec.2020 renders the same */
+        double inv = 0.0;
+        const drt::drt_mat3 apToX = drt::drt_gamut_to_xyz(DRT_IN_AP1), r20ToX = drt::drt_gamut_to_xyz(DRT_IN_REC2020);
+        const drt::drt_mat3 xToR20 = drt::drt_mat3_inverse(r20ToX);
+        for (const auto &c : {std::array<float,3>{0.18f, 0.18f, 0.18f}, std::array<float,3>{0.7f, 0.2f, 0.05f}, std::array<float,3>{0.1f, 0.3f, 0.9f}}) {
+            const drt::float3 inAp = drt::make_float3(c[0], c[1], c[2]);
+            const drt::float3 in20 = drt::drt_vdot(xToR20, drt::drt_vdot(apToX, inAp));
+            drt::DrtAgxParams a = drt::drt_agx_defaults(); a.working_gamut = DRT_IN_AP1; a = drt::drt_agx_derive(a);
+            drt::DrtAgxParams b = drt::drt_agx_defaults(); b.working_gamut = DRT_IN_REC2020; b = drt::drt_agx_derive(b);
+            const drt::float3 oAp = drt::drt_vdot(xToR20, drt::drt_vdot(apToX, drt::drt_agx(a, inAp)));
+            const drt::float3 o20 = drt::drt_agx(b, in20);
+            inv = std::max({inv, std::fabs(double(oAp.x - o20.x)), std::fabs(double(oAp.y - o20.y)), std::fabs(double(oAp.z - o20.z))});
+        }
+        if (inv > 1e-4) { std::printf("   agx working-gamut invariance %.2e\n", inv); good = false; }
+
+        /* Rec.709 rail: a saturated ACEScg green lands inside Rec.709 */
+        {
+            drt::DrtAgxParams a = drt::drt_agx_defaults(); a = drt::drt_agx_derive(a);   /* ACEScg, target Rec.709 */
+            const drt::float3 o = drt::drt_agx(a, drt::make_float3(0.05f, 2.0f, 0.05f));
+            const drt::drt_mat3 xTo709 = drt::drt_mat3_inverse(drt::drt_gamut_to_xyz(DRT_IN_REC709));
+            const drt::float3 o709 = drt::drt_vdot(xTo709, drt::drt_vdot(apToX, o));
+            if (std::min(o709.x, std::min(o709.y, o709.z)) < -1e-4f) { std::printf("   agx Rec.709 rail leaves negatives %g %g %g\n", o709.x, o709.y, o709.z); good = false; }
+        }
+
+        /* peak sweep on neutrals (Rec.2020 working, no rail) */
+        for (float peak : {100.0f, 400.0f, 1000.0f, 4000.0f}) {
+            drt::DrtAgxParams a = drt::drt_agx_defaults(); a.working_gamut = DRT_IN_REC2020; a.target = 0.0f; a.peak = peak;
+            a = drt::drt_agx_derive(a);
+            const float g = drt::drt_agx(a, drt::make_float3(0.18f, 0.18f, 0.18f)).y;
+            const float top = drt::drt_agx(a, drt::make_float3(1e4f, 1e4f, 1e4f)).y;
+            if (std::fabs(g - 0.18f) > 0.002f) { std::printf("   agx grey at peak %g: %g (want 0.18)\n", peak, g); good = false; }
+            if (std::fabs(top - peak / 100.0f) > 1e-3f * peak / 100.0f) { std::printf("   agx top at peak %g: %g nits\n", peak, top * 100.0f); good = false; }
+            float prev = -1.0f;
+            for (float e = -12.0f; e <= 10.0f; e += 0.25f) {
+                const float v = 0.18f * std::exp2(e), y = drt::drt_agx(a, drt::make_float3(v, v, v)).y;
+                if (y < prev - 1e-6f) { std::printf("   agx not monotonic at peak %g, %+g EV\n", peak, e); good = false; break; }
+                prev = y;
+            }
+        }
+        std::printf("%-34s vs harness %.2e, gamut invariance %.2e  %s\n", "agx", worst, inv, good ? "" : "FAILED");
+        ok = ok && good;
+    }
+
     std::printf("%s (tolerance %.1e)\n", ok ? "PASS" : "FAIL", kTolerance);
     return ok ? 0 : 1;
 }
