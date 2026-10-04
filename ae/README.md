@@ -73,7 +73,7 @@ scene-referred delivery (ACES 2065-1, ACEScg) is Render Encoding "None -
 Linear / ACES 2065-1" with Rendering Un-tone-mapped: no look goes into those
 pixels by definition, the recipient applies their own.
 
-**Rendering**, as an OCIO display has views: *OpenDRT* renders the scene (everything
+**Rendering** (default *Un-tone-mapped*), as an OCIO display has views: *OpenDRT* renders the scene (everything
 below); *Un-tone-mapped* is the Input's conversion run backwards, the gamut
 matrix and the display's curve and nothing else: no tonescale, no purity, no
 clip, scene 1.0 at display white on a power curve and at 100 nits on PQ and

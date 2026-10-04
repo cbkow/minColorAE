@@ -133,6 +133,9 @@ DrtParams drt_stickshift_defaults()
        off. Upstream's preset would pair sRGB Display with Bright; here the
        surround is the room, set by hand, and no preset writes it. */
     p.tn_su         = DRT_SURROUND_DARK;
+    /* minColor: the Output's Rendering defaults to Un-tone-mapped (a linear
+       conversion, no look); the OpenDRT rendering is one popup away */
+    p.out_view      = 1;
     p.display_gamut = DRT_DG_REC709;
     p.eotf          = DRT_EOTF_POWER_2_2;
     return p;

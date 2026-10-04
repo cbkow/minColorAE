@@ -36,7 +36,9 @@ None of them is part of, or endorsed by, OpenDRT.
   and the Input's inverse transfers no longer write Surround; it is the viewing
   room, set by hand, on the Output only; the Input's inverse always assumes
   Dark and has no Surround row. `drt_apply_display` and the preset-mode path the probe
-  checks keep upstream's behaviour.
+  checks keep upstream's behaviour. The Output's Rendering defaults to
+  Un-tone-mapped (a plain gamut and display-curve conversion); the OpenDRT
+  rendering is selected on the same popup, unchanged.
 
 ## New, not derived from OpenDRT
 
