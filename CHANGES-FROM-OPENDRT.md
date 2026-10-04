@@ -31,6 +31,12 @@ None of them is part of, or endorsed by, OpenDRT.
   ACES 2065-1, ACEScg, Rec.2020 and Rec.709 (with matching display gamuts).
 - Peak Luminance range raised to 10000 nits (upstream's slider stops at 1000).
 - "Use Look" on the tonescale preset re-applies the look's tonescale.
+- Defaults (2026-10-04): Display Encoding sRGB Display - 2.2 Power / Rec.709 and
+  Surround Dark (upstream: Rec.1886, Dim). The display presets, the render presets
+  and the Input's inverse transfers no longer write Surround; it is the viewing
+  room, set by hand, on the Output only; the Input's inverse always assumes
+  Dark and has no Surround row. `drt_apply_display` and the preset-mode path the probe
+  checks keep upstream's behaviour.
 
 ## New, not derived from OpenDRT
 

@@ -90,8 +90,10 @@ Top block, as in the Nuke node and the DCTL's preset mode:
 - **Input Gamut**, **Input Transfer**: the DCTL's 15 gamuts and 10 transfer functions,
   plus six display-referred decodes this port adds (Rec.1886, sRGB, 2.2 power,
   BT.709 camera, PQ, HLG) because an AE comp is mostly deliveries, not camera files.
-- **Display Encoding**: the nine DCTL presets. Picking one writes Display Gamut,
-  Display EOTF, Surround and Peak Luminance (100 for SDR, 1000 for PQ/HLG).
+- **Display Encoding**: the nine DCTL presets, default **sRGB Display - 2.2 Power /
+  Rec.709** (what the macOS Fix and the viewport shim expect). Picking one writes
+  Display Gamut, Display EOTF and Peak Luminance (100 for SDR, 1000 for PQ/HLG),
+  not Surround.
 - **Peak Luminance**, **HDR Grey Boost**, **HDR Purity**, **Grey Luminance**.
 - **Look**: Standard, Arriba, Sylvan, Colorful, Aery, Dystopic, Umbra, Base.
   Picking one writes every look parameter below, including Creative White and the
@@ -99,11 +101,14 @@ Top block, as in the Nuke node and the DCTL's preset mode:
 - **Tonescale**: the 13 DCTL tonescale presets, writing only the Tonescale group;
   **Use Look** puts the current Look's tonescale rows back (under a Custom look
   there is nothing to go back to, and it leaves the rows alone).
-- **Surround (viewing room)**, directly under Display Encoding: the preset writes
-  the display type's standard environment (Rec.1886 dim, sRGB and Display P3
-  bright, PQ and DCI dark, upstream's table), and this is where you say what
-  your room actually is, once. A Display P3 monitor in a grading room is viewed
-  dim: set it. Bright lifts the shadows and grey by 10-20 % over dim.
+- **Surround (viewing room)**, directly under Display Encoding, default **Dark**:
+  the look's contrast as authored. Dim divides the tonescale contrast by 1.05,
+  Bright by 1.10 (flatter, lifting the shadows and grey). Upstream's display presets
+  write the display type's standard room (Rec.1886 dim, sRGB and Display P3 bright,
+  PQ and DCI dark); here no preset touches it, so a preset change never flattens
+  the picture behind your back. Set your room once if Dark is not it. The Render
+  block's Render Surround works the same way (default Dark), so a delivery
+  renders in the room the view was judged in.
 - **Display Encoding** also offers **None - Linear / Working Gamut**, **/ ACES
   2065-1**, **/ ACEScg**, **/ Rec.2020** and **/ Rec.709** (not in upstream): no
   encoding, the light stays linear in that gamut, Clamp off. With View on Un-tone-mapped the Output is then an exact identity;
@@ -140,10 +145,11 @@ rendered it from through the named encoding, the way an ACES config's
 Tonescale and Peak Luminance to match the Output effect on top; Input Gamut is
 ignored. **Peak Luminance must be at least the master's peak** (its MaxCLL or
 mastering display: 1000, 2000, 4000 nits; the range goes to 10000). Choosing an
-inverse entry sets it, and Surround, to that encoding's defaults (1000 nits and
-Dark for PQ and HLG; 100 and the preset's surround for the SDR ones), as the
-Output's Display preset does; both stay editable, so raise the peak for a
-brighter master or set the surround the master was actually viewed in. A pixel
+inverse entry sets it to that encoding's default (1000 nits for PQ and HLG, 100
+for the SDR ones), as the Output's Display preset does; it stays editable, so
+raise it for a brighter master. The inverse always assumes the master was
+rendered at a Dark surround, the Output's default; there is no Surround row on
+the Input (a master rendered at Dim or Bright comes back 5-10 % too contrasty). A pixel
 brighter than the peak has no source at all: the inverse can only return "as
 bright as it goes", every codec block lands somewhere different, and the region
 shows as jagged, dancing white or colour. SDR masters cannot exceed their peak;

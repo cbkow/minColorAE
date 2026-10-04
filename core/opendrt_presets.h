@@ -96,8 +96,8 @@ void drt_output_mode(DrtParams &p);
 int  drt_display_preset_index(int display_gamut, int eotf);   /* kDisplays index of that pair, or -1 */   /* Output: in Render mode, the rnd_* block replaces the view's encoding; call before drt_derive() */
 void drt_apply_display(DrtParams &p, const DrtDisplay &d);   /* eotf, gamut, surround only */
 
-/* For an inverse in_oetf entry, set display_gamut / eotf / tn_su to the encoding
-   that entry names (peak stays on tn_Lp). Returns false and changes nothing for
+/* For an inverse in_oetf entry, set display_gamut / eotf to the encoding
+   that entry names (peak stays on tn_Lp, surround on tn_su). Returns false and changes nothing for
    any other transfer. Hosts call it before drt_derive() on the Input side. */
 bool drt_inverse_display(DrtParams &p);
 extern const int kInverseDisplayMap[];

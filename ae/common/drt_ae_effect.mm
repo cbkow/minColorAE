@@ -347,7 +347,7 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
             break;
         case drtae::kPresetDisplay:
             def.flags = PF_ParamFlag_SUPERVISE;
-            PF_ADD_POPUP(r.name, drt::kDisplayCount + 1, 2 /* Rec.1886 */, drtae::displayPopup(), id);
+            PF_ADD_POPUP(r.name, drt::kDisplayCount + 1, drt::drt_display_preset_index(DRT_DG_REC709, DRT_EOTF_POWER_2_2) + 2 /* sRGB Display */, drtae::displayPopup(), id);
             break;
         case drtae::kPresetRender:
             def.flags = PF_ParamFlag_SUPERVISE;
@@ -389,6 +389,7 @@ DrtRender liveParams(PF_ParamDef *params[])
     for (int k = 0; k < DRT_ROW_COUNT; ++k) rowFromDef(DRT_ROWS[k], *params[paramIndex(k)], x);
 #if DRT_ROLE_INPUT
     drt::drt_inverse_display(x.d);
+    x.d.tn_su = DRT_SURROUND_DARK;   /* the inverse assumes a Dark-surround render; no row (old projects' stored value is ignored) */
 #endif
 #if DRT_ROLE_GRADE
     x.d.in_gamut = x.d.working_gamut;
@@ -506,10 +507,10 @@ PF_Err UserChangedParam(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *p
     if (changed.kind == drtae::kColorPick) return pickColour(in_data, out_data, params, row);
 #endif
 #if DRT_ROLE_INPUT
-    /* Input Transfer set to an inverse entry: Peak Luminance and Surround take that
-       encoding's defaults (1000 nits / Dark for PQ and HLG, 100 / the preset's
-       surround for the SDR ones), as the Output's Display preset does; both rows
-       stay editable and the render honours them. The Input's default Peak
+    /* Input Transfer set to an inverse entry: Peak Luminance takes that encoding's
+       default (1000 nits for PQ and HLG, 100 for the SDR ones), as the Output's
+       Display preset does. The row stays editable and the render honours it; the
+       inverse always assumes a Dark surround (the Output's default, no row here). The Input's default Peak
        Luminance is the SDR 100, and a PQ master inverted against a 100-nit
        ceiling has no source above 100 nits. */
     if (row == 1 && changed.kind == drtae::kPopup) {
@@ -522,13 +523,6 @@ PF_Err UserChangedParam(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *p
                 if (r.kind == drtae::kFloat && r.f == &drt::DrtParams::tn_Lp) {
                     if (float(d->u.fs_d.value) != disp.default_Lp) {
                         d->u.fs_d.value = disp.default_Lp;
-                        d->uu.change_flags = PF_ChangeFlag_CHANGED_VALUE;
-                        out_data->out_flags |= PF_OutFlag_FORCE_RERENDER;
-                    }
-                } else if (r.kind == drtae::kPopup && r.i == &drt::DrtParams::tn_su) {
-                    const int choice = fieldToChoice(r, disp.tn_su);
-                    if (int(d->u.pd.value) != choice) {
-                        d->u.pd.value = choice;
                         d->uu.change_flags = PF_ChangeFlag_CHANGED_VALUE;
                         out_data->out_flags |= PF_OutFlag_FORCE_RERENDER;
                     }
@@ -574,15 +568,20 @@ PF_Err UserChangedParam(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *p
             drt::drt_apply_tonescale(p, drt::kTonescales[choice - 2]);
         }
         break;
-    case drtae::kPresetDisplay:
+    case drtae::kPresetDisplay: {
+        /* the encoding only: Surround is the viewing room, set once by hand (upstream's
+           preset writes the display type's standard room; minColor keeps the row) */
+        const int su = p.tn_su;
         drt::drt_apply_display(p, drt::kDisplays[choice - 2]);
+        p.tn_su = su;
         p.tn_Lp = drt::kDisplays[choice - 2].default_Lp; /* as the Nuke node's display presets do */
         p.clamp_out = drt::kDisplays[choice - 2].eotf == DRT_EOTF_LINEAR ? 0 : 1;   /* None carries values above 1 */
         break;
+    }
     case drtae::kPresetRender:   /* the Render block takes the preset */
         p.rnd_gamut = drt::kDisplays[choice - 2].display_gamut;
         p.rnd_eotf  = drt::kDisplays[choice - 2].eotf;
-        p.rnd_su    = drt::kDisplays[choice - 2].tn_su;
+        /* rnd_su stays: the delivery renders in the room the view was judged in */
         p.rnd_Lp    = drt::kDisplays[choice - 2].default_Lp;
         break;
     default: break;
@@ -693,7 +692,8 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
         }
     }
 #if DRT_ROLE_INPUT
-    drt::drt_inverse_display(p->d);   /* "OpenDRT inverse: <encoding>" names the file's gamut + EOTF; Surround is the row */
+    drt::drt_inverse_display(p->d);   /* "OpenDRT inverse: <encoding>" names the file's gamut + EOTF */
+    p->d.tn_su = DRT_SURROUND_DARK;   /* the inverse assumes a Dark-surround render; no row */
 #endif
 #if DRT_ROLE_GRADE
     p->d.in_gamut = p->d.working_gamut;   /* the reference measures working-gamut pixels: in_m** = working -> XYZ */

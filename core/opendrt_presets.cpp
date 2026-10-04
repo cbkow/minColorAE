@@ -128,9 +128,13 @@ DrtParams drt_stickshift_defaults()
     p.rnd_view  = 1;
     p.rnd_Lp    = 100.0f;
     p.inv_cap       = 1.0f;
-    p.tn_su         = DRT_SURROUND_DIM;
+    /* minColor: the view defaults to sRGB Display (a desktop monitor is what AE is
+       watched on) at a Dark surround, i.e. the look's contrast with nothing taken
+       off. Upstream's preset would pair sRGB Display with Bright; here the
+       surround is the room, set by hand, and no preset writes it. */
+    p.tn_su         = DRT_SURROUND_DARK;
     p.display_gamut = DRT_DG_REC709;
-    p.eotf          = DRT_EOTF_POWER_2_4;
+    p.eotf          = DRT_EOTF_POWER_2_2;
     return p;
 }
 

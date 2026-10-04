@@ -81,6 +81,7 @@ struct Row {
 #define DRT_P(field, label, str, n)       { kPopup, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 0, 0, str, n, nullptr, 0 }
 #define DRT_PX(field, label, str, n, id)  { kPopup, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 0, 0, str, n, nullptr, id }
 #define DRT_PH(field, label, str, n)      { kPopupHidden, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 0, 0, str, n, nullptr, 0 }
+#define DRT_PHX(field, label, str, n, id) { kPopupHidden, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 0, 0, str, n, nullptr, id }
 #define DRT_PM(field, label, str, n, map) { kPopup, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 0, 0, str, n, map, 0 }
 #define DRT_T(label)                      { kTopic, label, nullptr, nullptr, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0 }
 #define DRT_E()                           { kEndTopic, "", nullptr, nullptr, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0 }
@@ -211,7 +212,7 @@ static const Row kOutputRows[] = {
     DRT_PX(out_mode, "Mode",           kModePopup, 2, 1002),   /* View: the rows below; Render: the Render block (look rows shared) */
     DRT_PX(out_view, "Rendering",      kViewPopup, 2, 1000),   /* as an OCIO display's views: the rendering, or none */
     DRT_PRESET(kPresetDisplay,   "Display Encoding"),
-    DRT_PX(tn_su,    "Surround (viewing room)", kSurroundPopup, 3, 1001),   /* the preset writes the display's standard room; set yours once */
+    DRT_PX(tn_su,    "Surround (viewing room)", kSurroundPopup, 3, 1001),   /* the viewing room, Dark by default; no preset writes it (minColor) */
     /* the Render block: the delivery's encoding, swapped in for the rows above in Render mode
        (drt_output_mode); all explicit ids so no auto row moves */
     DRT_TX("Render", 1003),
@@ -240,7 +241,8 @@ static const Row kInputRows[] = {
     DRT_PX(in_range, "Input Range", kRangePopup, 2, 1001),   /* hosts are not reliable about expanding video range */
     /* everything below applies only to the "OpenDRT inverse: ..." transfers */
     DRT_FX(inv_cap, "Highlight Cap (of peak)", 0.5f, 1.0f, 2, 1000),
-    DRT_PX(tn_su,   "Surround (viewing room)", kSurroundPopup, 3, 1002),   /* how the master was viewed; the inverse entry writes it */
+    DRT_PHX(tn_su,  "Surround (viewing room)", kSurroundPopup, 3, 1002),   /* hidden 2026-10-04: the inverse always assumes Dark,
+                                                                              the Output's default; a room setting on both sides confused. id kept */
     DRT_LOOK_ROWS,
 };
 static const int kInputRowCount = int(sizeof(kInputRows) / sizeof(kInputRows[0]));
