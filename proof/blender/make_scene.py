@@ -16,7 +16,9 @@
 #     CIE 1931 colour-matching functions: most lie outside ACEScg, so the EXR carries
 #     negative values, the hardest case for every gamut rail downstream.
 # The blend file's working space is ACEScg, so the EXRs are linear ACEScg (minColor's
-# default working space). Renders: Cycles on the GPU, 1920x1080, 24 fps, frames 1-120.
+# default working space). Renders: Cycles on the GPU, 1920x1080, 24 fps, frames 1-120, no
+# denoiser (it clamps negatives), 1024 adaptive samples instead; on the farm through
+# MinRender's Blender 5.2 template (multilayer EXR).
 
 import math
 import sys
@@ -225,8 +227,10 @@ r.use_motion_blur = True
 r.motion_blur_shutter = 0.5
 cy = sc.cycles
 cy.device = "GPU"
-cy.samples = 160
-cy.use_denoising = True
+cy.samples = 1024
+cy.use_adaptive_sampling = True
+cy.adaptive_threshold = 0.004
+cy.use_denoising = False   # OIDN takes non-negative light only: it clipped the lasers' out-of-ACEScg channels to 0
 cy.max_bounces = 8
 prefs = bpy.context.preferences.addons["cycles"].preferences
 prefs.compute_device_type = "METAL" if sys.platform == "darwin" else "OPTIX"
