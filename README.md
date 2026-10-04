@@ -71,6 +71,16 @@ that sets an OCIO working space, so the panel writes it into the saved `.aep`.
 Press it again after moving the project. In an Adobe-engine project, add minColor macOS Fix by
 hand on a guide layer instead.
 
+**Apply In** sets minColor Input on the selected footage layers of the active comp
+from `minColor/in.json` (written from the panel's starter the first time); the
+first rule matching the file extension wins: EXR as ACEScg linear, stills and
+graphics as sRGB, video as Rec.709 / Rec.1886 at Full range (AE already expands
+video levels when it decodes; measured on 26.5), R3D and ARRIRAW as the camera log
+the importer is assumed to decode to. It adds the effect first in the stack where
+a layer has none, shows the changes before applying, applies them as one undo
+step, and reports every selected layer, including the ones it skipped and why.
+The rules use the Input's menu names; edit the file to change them.
+
 ## License
 
 GPL-3.0-only (see [LICENSE](LICENSE)). Copyright (C) 2026 cbkow. The rendering
