@@ -59,19 +59,15 @@ baked into the output. Same contract: the Output's View encoding is sRGB Display
 
 ## minColor Output controls
 
-**Mode: View | Render.** The look rows (Look, Tonescale, Creative White, the
-StickShift groups) are shared: what was approved on the monitor is what
-renders. Only the encoding differs per destination: in View mode the rows
-below and the Display group apply; in Render mode the **Render** block (its
-own Encoding preset, Gamut, EOTF, Peak, Surround and Rendering; default
-ACES 2065-1 linear, Un-tone-mapped) replaces them,
-and the viewer shows the delivery encoding so it can be checked before it is
-written. AE gives an effect no "this is the final render" signal, so the
-switch is yours: flip to Render before the queue, back to View after (or keep
-two Outputs, the preview on a Guide Layer, which AE skips on render). A
-scene-referred delivery (ACES 2065-1, ACEScg) is Render Encoding "None -
-Linear / ACES 2065-1" with Rendering Un-tone-mapped: no look goes into those
-pixels by definition, the recipient applies their own.
+**One encoding.** The Output has a single Display Encoding: what it writes is
+what the comp shows and what renders. In an OCIO project set up by the panel's
+Fix OCIO, the Output reads the working space and hands back linear light in it
+(*None - Linear / Working Gamut*); the config's view encodes for the screen and
+the Output Module's *Output Color Space* encodes deliveries. In an Adobe-engine
+project (working space None, footage on Preserve RGB) the Output's encoding is
+the delivery's: set it for the render (sRGB, Rec.709, a linear hand-off...), and
+put minColor macOS Fix on a guide layer to correct the viewer. (Until 0.1.1 the
+Output had a View | Render pair of encodings; it is gone.)
 
 **Rendering** (default *Un-tone-mapped*), as an OCIO display has views: *OpenDRT* renders the scene (everything
 below); *Un-tone-mapped* is the Input's conversion run backwards, the gamut
@@ -106,9 +102,7 @@ Top block, as in the Nuke node and the DCTL's preset mode:
   Bright by 1.10 (flatter, lifting the shadows and grey). Upstream's display presets
   write the display type's standard room (Rec.1886 dim, sRGB and Display P3 bright,
   PQ and DCI dark); here no preset touches it, so a preset change never flattens
-  the picture behind your back. Set your room once if Dark is not it. The Render
-  block's Render Surround works the same way (default Dark), so a delivery
-  renders in the room the view was judged in.
+  the picture behind your back. Set your room once if Dark is not it.
 - **Display Encoding** also offers **None - Linear / Working Gamut**, **/ ACES
   2065-1**, **/ ACEScg**, **/ Rec.2020** and **/ Rec.709** (not in upstream): no
   encoding, the light stays linear in that gamut, Clamp off. With View on Un-tone-mapped the Output is then an exact identity;

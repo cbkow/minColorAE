@@ -15,7 +15,7 @@ Version 0.1.0. macOS (Metal + CPU), After Effects 26.5.
 | Effect | Job |
 | --- | --- |
 | **minColor Input** | What a file is: input gamut and transfer (camera logs, Rec.1886, sRGB, PQ, HLG, linear), video range, into the comp's linear working gamut. Also the "OpenDRT inverse" transfers for material rendered through this same rendering. |
-| **minColor Output** | The rendering, on an adjustment layer at the top: look, tonescale, display encoding. Two renderings (Un-tone-mapped by default, or the OpenDRT-derived one) and two modes (View, Render) sharing one look. |
+| **minColor Output** | The rendering, on an adjustment layer at the top: look, tonescale, display encoding. Two renderings (Un-tone-mapped by default, or the OpenDRT-derived one) and one display encoding (linear in the working space for OCIO projects). |
 | **minColor Grade** | Exposure, contrast, six luminance zones defined through the tonescale with colour wheels, and an HSL secondary with eyedroppers. |
 | **minColor macOS Fix** | No settings. Corrects how After Effects shows colour in its viewport on macOS; viewer only, on a Guide Layer. |
 

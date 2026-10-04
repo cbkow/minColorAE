@@ -26,7 +26,8 @@ None of them is part of, or endorsed by, OpenDRT.
 - An iterative inverse of the rendering (`drt_inverse_transform`), used by the
   Input effect's "OpenDRT inverse" transfers and the Grade's eyedroppers.
 - An "Un-tone-mapped" view: the input conversion reversed, with no rendering.
-- An output Mode: View | Render, with a separate render encoding block.
+- An output Mode: View | Render, with a separate render encoding block (removed
+  again in minColorAE 0.1.1: the Output has one encoding).
 - Display presets beyond upstream's: linear hand-offs to the working gamut,
   ACES 2065-1, ACEScg, Rec.2020 and Rec.709 (with matching display gamuts).
 - Peak Luminance range raised to 10000 nits (upstream's slider stops at 1000).

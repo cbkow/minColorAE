@@ -111,7 +111,7 @@ struct DrtRender {
    and mirror it in the PiPLs' AE_Effect_Version: PF_VERSION(major, minor, 0, DEVELOP, 1). */
 #define DRT_MAJOR_VERSION 0
 #define DRT_MINOR_VERSION 1
-#define DRT_BUG_VERSION   0   /* PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
+#define DRT_BUG_VERSION   1   /* 1: the Output's View/Render pair removed (2026-10-04). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
 
 extern "C" {
 DllExport PF_Err EffectMain(PF_Cmd cmd, PF_InData *in_data, PF_OutData *out_data,
@@ -349,10 +349,6 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
             def.flags = PF_ParamFlag_SUPERVISE;
             PF_ADD_POPUP(r.name, drt::kDisplayCount + 1, drt::drt_display_preset_index(DRT_DG_REC709, DRT_EOTF_POWER_2_2) + 2 /* sRGB Display */, drtae::displayPopup(), id);
             break;
-        case drtae::kPresetRender:
-            def.flags = PF_ParamFlag_SUPERVISE;
-            PF_ADD_POPUP(r.name, drt::kDisplayCount + 1, drt::drt_display_preset_index(DRT_DG_AP0, DRT_EOTF_LINEAR) + 2 /* None - Linear / ACES 2065-1 */, drtae::displayPopup(), id);
-            break;
         case drtae::kColorPick:
             def.flags = PF_ParamFlag_SUPERVISE;
             PF_ADD_COLOR(r.name, 128, 128, 128, id);
@@ -397,7 +393,6 @@ DrtRender liveParams(PF_ParamDef *params[])
 #endif
 #if DRT_ROLE_OUTPUT
     x.d.working_gamut = x.d.in_gamut;   /* "Working Gamut" as a display gamut means the comp's */
-    drt::drt_output_mode(x.d);
 #endif
     x.d = drt::drt_derive(x.d);
 #if DRT_ROLE_GRADE
@@ -533,7 +528,7 @@ PF_Err UserChangedParam(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *p
     }
 #endif
     if (changed.kind != drtae::kPresetLook && changed.kind != drtae::kPresetTonescale &&
-        changed.kind != drtae::kPresetDisplay && changed.kind != drtae::kPresetRender)
+        changed.kind != drtae::kPresetDisplay)
         return PF_Err_NONE;
 
     const int choice = int(params[extra->param_index]->u.pd.value); /* 1-based; 1 = Custom / Use Look */
@@ -578,12 +573,6 @@ PF_Err UserChangedParam(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *p
         p.clamp_out = drt::kDisplays[choice - 2].eotf == DRT_EOTF_LINEAR ? 0 : 1;   /* None carries values above 1 */
         break;
     }
-    case drtae::kPresetRender:   /* the Render block takes the preset */
-        p.rnd_gamut = drt::kDisplays[choice - 2].display_gamut;
-        p.rnd_eotf  = drt::kDisplays[choice - 2].eotf;
-        /* rnd_su stays: the delivery renders in the room the view was judged in */
-        p.rnd_Lp    = drt::kDisplays[choice - 2].default_Lp;
-        break;
     default: break;
     }
 
@@ -596,33 +585,23 @@ PF_Err UserChangedParam(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *p
 }
 
 /* Output: in the Un-tone-mapped view the look rows do nothing, so grey them; what
-   stays live is the input rows, View, and the display's gamut and EOTF.
+   stays live is the input rows, Rendering, and the display encoding rows.
    Input: the look rows mean nothing unless an inverse transfer is selected, so
    grey them out otherwise. AE sends PF_Cmd_UPDATE_PARAMS_UI whenever a param
    changes (PF_OutFlag_SEND_UPDATE_PARAMS_UI); only flags that differ are written back. */
-#if DRT_ROLE_OUTPUT
-static bool g_renderMode = false;   /* set by UpdateParamsUI before the row scan */
-#endif
 #if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT
 static bool rowGreyed(const Row &r, int k, bool grey)
 {
     if (r.kind == drtae::kEndTopic || r.kind == drtae::kTopic || r.kind == drtae::kTopicOpen) return false;
 #if DRT_ROLE_OUTPUT
     (void)k;
-    const bool viewBlock = r.kind == drtae::kPresetDisplay ||
+    const bool encoding = r.kind == drtae::kPresetDisplay ||
                            (r.kind == drtae::kPopup && (r.i == &drt::DrtParams::out_view || r.i == &drt::DrtParams::display_gamut ||
                                                         r.i == &drt::DrtParams::eotf || r.i == &drt::DrtParams::tn_su)) ||
                            (r.kind == drtae::kCheck && r.i == &drt::DrtParams::clamp_out) ||
                            (r.kind == drtae::kFloat && r.f == &drt::DrtParams::tn_Lp);
-    const bool renderBlock = r.kind == drtae::kPresetRender ||
-                             (r.kind == drtae::kPopup && (r.i == &drt::DrtParams::rnd_gamut || r.i == &drt::DrtParams::rnd_eotf ||
-                                                          r.i == &drt::DrtParams::rnd_su || r.i == &drt::DrtParams::rnd_view)) ||
-                             (r.kind == drtae::kFloat && r.f == &drt::DrtParams::rnd_Lp);
-    const bool always = r.kind == drtae::kPopup && (r.i == &drt::DrtParams::in_gamut || r.i == &drt::DrtParams::in_oetf ||
-                                                    r.i == &drt::DrtParams::out_mode);
-    if (always) return false;
-    if (viewBlock) return g_renderMode;          /* the inactive block greys */
-    if (renderBlock) return !g_renderMode;
+    const bool always = r.kind == drtae::kPopup && (r.i == &drt::DrtParams::in_gamut || r.i == &drt::DrtParams::in_oetf);
+    if (always || encoding) return false;        /* input and encoding rows stay live */
     return grey;                                 /* look rows: grey when the active rendering is Un-tone-mapped */
 #else
     return k >= drtae::kInputLookRowsFrom && grey;
@@ -635,17 +614,11 @@ PF_Err UpdateParamsUI(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *par
 #if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT
     bool grey = false;
 #if DRT_ROLE_OUTPUT
-    int viewRow = -1, modeRow = -1, rndViewRow = -1;
-    for (int k = 0; k < DRT_ROW_COUNT; ++k) {
-        if (DRT_ROWS[k].kind != drtae::kPopup) continue;
-        if (DRT_ROWS[k].i == &drt::DrtParams::out_view) viewRow = k;
-        if (DRT_ROWS[k].i == &drt::DrtParams::out_mode) modeRow = k;
-        if (DRT_ROWS[k].i == &drt::DrtParams::rnd_view) rndViewRow = k;
-    }
-    if (viewRow < 0 || modeRow < 0 || rndViewRow < 0) return PF_Err_NONE;
-    g_renderMode = choiceToField(DRT_ROWS[modeRow], int(params[paramIndex(modeRow)]->u.pd.value)) == 1;
-    const int activeView = g_renderMode ? rndViewRow : viewRow;
-    grey = choiceToField(DRT_ROWS[activeView], int(params[paramIndex(activeView)]->u.pd.value)) == 1;
+    int viewRow = -1;
+    for (int k = 0; k < DRT_ROW_COUNT; ++k)
+        if (DRT_ROWS[k].kind == drtae::kPopup && DRT_ROWS[k].i == &drt::DrtParams::out_view) viewRow = k;
+    if (viewRow < 0) return PF_Err_NONE;
+    grey = choiceToField(DRT_ROWS[viewRow], int(params[paramIndex(viewRow)]->u.pd.value)) == 1;
 #else
     grey = choiceToField(DRT_ROWS[1], int(params[paramIndex(1)]->u.pd.value)) < DRT_OETF_INVERSE_FIRST;
 #endif
@@ -701,7 +674,6 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
 #endif
 #if DRT_ROLE_OUTPUT
     p->d.working_gamut = p->d.in_gamut;   /* "Working Gamut" as a display gamut means the comp's */
-    drt::drt_output_mode(p->d);
 #endif
     p->d = drt::drt_derive(p->d);
 #if DRT_ROLE_GRADE

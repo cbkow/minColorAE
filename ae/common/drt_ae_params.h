@@ -54,7 +54,7 @@ enum Kind {
     kPresetLook,     /* supervised popups, not bound: on change they write other rows */
     kPresetTonescale,
     kPresetDisplay,
-    kPresetRender,   /* Output: writes the Render block's rows */
+    kPresetRender,   /* retired with the Render block (2026-10-04); no row uses it */
     kTopicOpen,      /* group start that opens expanded */
     kWheels,         /* Grade: a custom-UI row of colour wheels, three to a line; choices = first wheel (ae/common/drt_ae_wheels.h) */
     kColorPick,      /* Grade: a colour row whose eyedropper drives the HSL secondary; choices = 0 set, 1 add, 2 remove */
@@ -115,7 +115,6 @@ static const char *const kCwpPopup          = "D93|D75|D65|D60|D55|D50";
 static const char *const kRangePopup        = "Full|Limited (video)";
 static const char *const kViewPopup         = "OpenDRT|Un-tone-mapped";
 static const char *const kDisplayGamutPopup = "Rec.709|P3-D65|Rec.2020 (P3 Limited)|P3-D60|P3-DCI|XYZ|Working Gamut|ACES 2065-1|ACEScg|Rec.2020";
-static const char *const kModePopup         = "View|Render";
 static const char *const kEotfPopup         = "Linear|2.2 Power (sRGB Display)|2.4 Power (Rec.1886)|2.6 Power (DCI)|ST 2084 PQ|HLG";
 
 /* The look: HDR sliders, preset popups, creative white, then the StickShift
@@ -209,20 +208,11 @@ static const char *const kEotfPopup         = "Linear|2.2 Power (sRGB Display)|2
 static const Row kOutputRows[] = {
     DRT_P(in_gamut,  "Input Gamut",    nullptr, DRT_IN_GAMUT_COUNT),
     DRT_P(in_oetf,   "Input Transfer", nullptr, DRT_OETF_INVERSE_FIRST),   /* no inverse entries on the render side */
-    DRT_PX(out_mode, "Mode",           kModePopup, 2, 1002),   /* View: the rows below; Render: the Render block (look rows shared) */
     DRT_PX(out_view, "Rendering",      kViewPopup, 2, 1000),   /* as an OCIO display's views: the rendering, or none */
     DRT_PRESET(kPresetDisplay,   "Display Encoding"),
     DRT_PX(tn_su,    "Surround (viewing room)", kSurroundPopup, 3, 1001),   /* the viewing room, Dark by default; no preset writes it (minColor) */
-    /* the Render block: the delivery's encoding, swapped in for the rows above in Render mode
-       (drt_output_mode); all explicit ids so no auto row moves */
-    DRT_TX("Render", 1003),
-    DRT_PRESETX(kPresetRender, "Render Encoding", 1004),
-    DRT_PX(rnd_gamut, "Render Gamut",     kDisplayGamutPopup, 10, 1005),
-    DRT_PX(rnd_eotf,  "Render EOTF",      kEotfPopup,         6, 1006),
-    DRT_FX(rnd_Lp,    "Render Peak (nits)", 100.0f, 10000.0f, 0, 1007),
-    DRT_PX(rnd_su,    "Render Surround",  kSurroundPopup,     3, 1008),
-    DRT_PX(rnd_view,  "Render Rendering", kViewPopup,         2, 1009),
-    DRT_EX(1010),
+    /* ids 1002 (Mode) and 1003-1010 (the Render block) retired 2026-10-04: the Output
+       has one role now, no View/Render pair; never reuse them */
     DRT_LOOK_ROWS,
 
     DRT_T("Display"),
