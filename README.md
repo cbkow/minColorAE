@@ -1,58 +1,56 @@
 # minColorAE
 
-Colour tools for After Effects: six effects that interpret media, grade it,
-compress its highlights, form a picture with AgX, and render it for a display, built on a
-rendering derived from [OpenDRT](https://github.com/jedypod/open-display-transform)
-v1.1.0 by Jed Smith.
+Linear-light colour tools for Adobe After Effects: six effects and a small panel
+that interpret footage into one working space, deliver through OpenColorIO, and
+add a picture formation (OpenDRT or AgX) or a highlight knee only when you ask
+for one.
 
-minColorAE is not OpenDRT and is not affiliated with or endorsed by the OpenDRT
-project or its author. The rendering is modified from upstream; see
-[CHANGES-FROM-OPENDRT.md](CHANGES-FROM-OPENDRT.md) and [NOTICE](NOTICE). minColor AgX
-ports parts of darktable's AgX module and is not affiliated with or endorsed by
-darktable or Blender; see [CHANGES-AGX.md](CHANGES-AGX.md).
+<p>
+<img src="docs/images/view_raw.jpg" width="49%" alt="A linear ACEScg render, un-tone-mapped">
+<img src="docs/images/view_agx.jpg" width="49%" alt="The same frame through minColor AgX">
+</p>
 
-Version 0.1.3. After Effects 26.5 on macOS (Metal + CPU) and Windows (CUDA + CPU).
+**[Read the documentation →](docs/README.md)** ·
+[Install](docs/install.md) · [Quick start](docs/quick-start.md)
 
-## The effects (Effect > minColor)
+## What's in it
 
-| Effect | Job |
+| | |
 | --- | --- |
-| **minColor Input** | What a file is: input gamut and transfer (camera logs, Rec.1886, sRGB, PQ, HLG, linear), video range, into the comp's linear working gamut. Also the "OpenDRT inverse" transfers for material rendered through this same rendering. |
-| **minColor Output** | The rendering, on an adjustment layer at the top: look, tonescale, display encoding. Two renderings (Un-tone-mapped by default, or the OpenDRT-derived one) and one display encoding (linear in the working space for OCIO projects). |
-| **minColor Grade** | Exposure, contrast, six luminance zones defined through the tonescale with colour wheels, and an HSL secondary with eyedroppers. |
-| **minColor Knee** | A highlight knee for ultrabright linear light: Source Peak, Target Peak, Knee Start (BT.2390 auto, or set by hand). Untouched below the knee start; hues hold. Before an SDR view or delivery. |
-| **minColor AgX** | AgX image formation (Troy Sobotka's), parametric and HDR-native: scene light in the working gamut to display light, 1.0 = 100 nits. Blender-compatible at its defaults (Blender's "AgX" view; Peak 1000 its HDR 1000 view); White / Black range, Contrast, Toe, Shoulder and Peak dial it from there. |
-| **minColor macOS Fix** | No settings. Corrects how After Effects shows colour in its viewport on macOS; viewer only, on a Guide Layer. |
+| **minColor Input** | What a file is (camera logs, display encodings, linear), into the comp's working space. |
+| **minColor Output** | Encodes for a display or a delivery; un-tone-mapped, or an OpenDRT-derived rendering. |
+| **minColor Grade** | Zone-based colour correction for linear light, with wheels and an HSL secondary. |
+| **minColor Knee** | A BT.2390 highlight knee for HDR content heading somewhere dimmer. |
+| **minColor AgX** | Parametric, HDR-capable AgX; Blender-compatible at its defaults. |
+| **minColor macOS Fix** | Corrects After Effects' viewer on a Mac when not using OCIO. |
+| **minColor panel** | Set OCIO, per-project In rules, Apply In, Add Output. |
+| **OCIO config** | Linear conversions, generated from the same matrices as the effects. |
 
-`ocio/mincolor.ocio` is the OCIO config for linear conversions: five linear
-working spaces (ACEScg, ACES2065-1, Linear Rec.709, Linear P3-D65, Linear
-Rec.2020), sRGB, Rec.709 BT.1886 and Display P3 for delivery and viewing, one view
-(Un-tone-mapped), a Display P3 display for P3 monitors where AE's viewer is not
-colour managed (Windows), a macOS display that carries the same viewport
-correction as the macOS Fix effect, and a macOS Video display that shows a
-Rec.709 BT.1886 delivery as a Mac plays it. It is generated from the core's matrices, so
-it and minColor Input agree; the panel's Set OCIO installs it per project.
-`ocio/mincolor-unmanaged.ocio` is Set OCIO's **Unmanaged** choice: a
-pass-through config where the Output encodes for the display and the config only
-corrects the viewer on macOS.
+After Effects 2026 (26.5) on macOS (Metal) and Windows (CUDA), with CPU rendering
+everywhere. Version 0.1.3.
 
-Full controls and the comp setup: [ae/README.md](ae/README.md).
+## Credits and licensing
 
-## Layout
+minColorAE is free software under the **GPL-3.0** ([LICENSE](LICENSE)).
+Copyright (C) 2026 cbkow. It builds on others' work, credited in [NOTICE](NOTICE)
+and [PROVENANCE.md](PROVENANCE.md):
 
-```
-core/       the rendering, dialect-neutral (C++ / Metal / CUDA; HLSL and GLSL shims untested),
-            presets, the Grade maths, the Knee, AgX
-ae/         the six After Effects effects (one source, compiled per role)
-panel/      the minColor ScriptUI panel (workflow only; the OCIO config is embedded at build)
-ocio/       mincolor.ocio (generated by tools/make_ocio) and mincolor-unmanaged.ocio
-presets/    drt_presets.json, generated from the C++ tables; ae/minColor/, the animation presets
-tools/      probe_core (the core against the unmodified upstream DCTL), check_msl,
-            check_cuda (the CUDA kernels against the core), dump_presets, make_ocio
-upstream/   OpenDRT_v1.1.0.dctl, unmodified, the test reference
-```
+- The rendering in minColor Output is derived from
+  [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 by Jed Smith
+  (GPL-3.0), modified; see [CHANGES-FROM-OPENDRT.md](CHANGES-FROM-OPENDRT.md).
+  The unmodified DCTL is kept in `upstream/` as the test reference.
+- minColor AgX ports parts of darktable's AgX module by István Kovács and the
+  darktable developers (GPL-3.0-or-later); see [CHANGES-AGX.md](CHANGES-AGX.md).
+  AgX is by Troy Sobotka; the Blender version, whose primaries and HDR method it
+  follows, is by Eary Chow, Mark Faderbauer and Sakari Kapanen. No Blender files
+  are included.
+- The Knee follows ITU-R BT.2390.
 
-## Build, test, install
+minColorAE is not affiliated with or endorsed by OpenDRT, darktable, Blender,
+Adobe or the Academy (ACES). After Effects is a trademark of Adobe. The Adobe
+After Effects SDK is proprietary and is not part of this repository.
+
+## Build
 
 Needs Adobe's After Effects SDK (proprietary, obtained separately, never in this
 repository): pass its path, or link it at `private/sdk/AfterEffectsSDK` (a symlink on
@@ -93,77 +91,16 @@ are built for Turing and newer (PTX 7.5, SASS for Ampere, Ada and Blackwell). AE
 them when the project's renderer is *Mercury GPU Acceleration (CUDA)*; under any other
 renderer the effects render on the CPU, with the same results.
 
-## Animation presets
+## Repository
 
-Effects & Presets > Animation Presets > minColor (refresh the list after
-installing). Each is the whole effect, on working space ACEScg; drop one on a
-layer, with or without the effect already on it.
-
-| Preset | Sets |
-| --- | --- |
-| mCin_sRGB | Input: Rec.709, sRGB |
-| mCin_rec709video | Input: Rec.709, Rec.1886 (video levels already expanded by AE) |
-| mCin_ACEScg / mCin_ACES2065-1 | Input: ACEScg / ACES 2065-1, linear |
-| mCin_linear_rec709 / mCin_linear_rec2020 | Input: Rec.709 / Rec.2020, linear |
-| mCin_Netflicker | Input: OpenDRT inverse Dolby PQ / P3-D65, Limited range, peak 1000 (HEVC review files) |
-| mCout_sRGB | Output: Un-tone-mapped, sRGB Display 2.2 / Rec.709 |
-| mCout_rec709video | Output: Un-tone-mapped, Rec.1886 2.4 / Rec.709 |
-| mCout_ACEScg / mCout_ACES2065-1 | Output: Un-tone-mapped, linear ACEScg / ACES 2065-1 hand-off |
-| mCagx_sRGB | AgX: Blender's AgX for sRGB / Rec.709 (the defaults: Peak 100, Target Rec.709) |
-| mCagx_P3 | AgX: Peak 100, Target P3-D65 (Display P3 deliveries) |
-| mCagx_HDR1000 | AgX: Peak 1000, Target P3-D65 (Blender's AgX HDR 1000) |
-
-## The panel
-
-Manual and passive: it never reads or reports the project's colour settings
-(AE's scripting answers for those can be stale), and nothing a frame renders
-depends on it. **Add Output** puts an adjustment layer with minColor Output at the
-top of the active comp (under a macOS Fix layer if there is one), once per comp,
-as one undo step. **Set OCIO** asks for a working space (ACEScg,
-ACES2065-1, Linear Rec.709, Linear P3-D65, Linear Rec.2020, or Unmanaged for the
-pass-through `mincolor-unmanaged.ocio`), saves the project, writes the config into `minColor/` next to the `.aep`, makes it the
-project's OCIO config (OCIO on; on an Adobe-engine project that changes how
-footage is interpreted; the viewer's display is still picked by hand, per project,
-in the Composition panel: AE has no API for it), sets the working space, records it in
-`minColor/project.json` (Apply In and Add Output follow it) and reopens the
-project (undo history is
-cleared; the saved file before the change is kept in `minColor/`). AE has no API
-that sets an OCIO working space, so the panel writes it into the saved `.aep`.
-Press it again after moving the project. In an Adobe-engine project (working
-space None, Preserve RGB), add minColor macOS Fix by hand on a guide layer instead.
-
-**Apply In** sets minColor Input on the selected footage layers of the active comp
-from `minColor/in.json` (written from the panel's starter the first time); the
-first rule matching the file extension wins: EXR as ACEScg linear, stills and
-graphics as sRGB, video as Rec.709 / Rec.1886 at Full range (AE already expands
-video levels when it decodes; measured on 26.5), R3D and ARRIRAW as the camera log
-the importer is assumed to decode to. It adds the effect first in the stack where
-a layer has none, shows the changes before applying, applies them as one undo
-step, and reports every selected layer, including the ones it skipped and why.
-**In Rules…** edits those rules for the project in a table (extensions, and
-Gamut / Transfer / Range from the Input's own menus; add, remove, reorder, reset to
-the defaults) and saves `minColor/in.json`.
-
-### When pieces are missing
-
-Measured on AE 26.5 with a project that uses all of it:
-
-- **The `minColor/` folder (the OCIO config) is missing**, e.g. a project copied
-  without it: AE silently falls back to its Adobe colour engine. The minColor
-  effects still render; only the viewer's macOS correction is gone. If the folder
-  comes back before the project is saved, the project opens on OCIO again by
-  itself. If the project is saved in the fallback, the OCIO setting is lost:
-  press **Set OCIO** (it writes a fresh `minColor/`).
-- **The minColor effects are not installed**: the project opens, every instance
-  is kept with all of its settings and renders as if it were off, and installing
-  the effects brings them back unchanged, even after saving without them. The
-  panel's Apply In and Add Output refuse to run without the effect they add
-  (AE would otherwise add placeholders that do nothing).
-- **The panel is not installed**: nothing changes; it only adds effects and
-  writes files.
-
-## License
-
-GPL-3.0-only (see [LICENSE](LICENSE)). Copyright (C) 2026 cbkow. The rendering
-is derived from OpenDRT v1.1.0 by Jed Smith, GPLv3. minColor AgX ports parts of
-darktable's AgX module (GPL-3.0-or-later, used here under GPL-3.0).
+```
+core/       the colour maths, dialect-neutral (C++, Metal, CUDA)
+ae/         the After Effects effects (one source, compiled per effect)
+panel/      the ScriptUI panel
+ocio/       mincolor.ocio (generated by tools/make_ocio) and mincolor-unmanaged.ocio
+presets/    animation presets and the presets JSON
+proof/      the Blender proof scene (scripted)
+tools/      tests: the core against the upstream DCTL, the GPU kernels against the CPU
+docs/       the user documentation
+upstream/   OpenDRT v1.1.0, unmodified
+```
