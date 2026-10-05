@@ -5,13 +5,27 @@ that interpret footage into one working space, deliver through OpenColorIO, and
 add a picture formation (OpenDRT or AgX) or a highlight knee only when you ask
 for one.
 
-<p>
-<img src="docs/images/view_raw.jpg" width="49%" alt="A linear ACEScg render, un-tone-mapped">
-<img src="docs/images/view_agx.jpg" width="49%" alt="The same frame through minColor AgX">
-</p>
-
 **[Read the documentation →](docs/README.md)** ·
 [Install](docs/install.md) · [Quick start](docs/quick-start.md)
+
+<p>
+<img src="docs/images/view_raw.jpg" width="32%" alt="Un-tone-mapped">
+<img src="docs/images/view_agx.jpg" width="32%" alt="minColor AgX">
+<img src="docs/images/view_opendrt.jpg" width="32%" alt="minColor Output, OpenDRT rendering">
+</p>
+
+*One frame of the proof footage (a Blender render in linear ACEScg, highlights to
+55× diffuse white, spectral lasers outside ACEScg): un-tone-mapped, through
+[minColor AgX](docs/effects/agx.md), and through the [OpenDRT rendering](docs/effects/output.md).*
+
+<p>
+<img src="docs/images/panel.png" height="300" alt="The minColor panel">
+<img src="docs/images/ec_input.png" height="300" alt="minColor Input">
+<img src="docs/images/ec_agx.png" height="300" alt="minColor AgX">
+<img src="docs/images/ec_grade.png" height="300" alt="minColor Grade">
+</p>
+
+*The panel, and minColor Input, AgX and Grade in Effect Controls.*
 
 ## What's in it
 
