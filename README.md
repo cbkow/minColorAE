@@ -31,8 +31,8 @@ Rec.2020), sRGB, Rec.709 BT.1886 and Display P3 for delivery and viewing, one vi
 colour managed (Windows), a macOS display that carries the same viewport
 correction as the macOS Fix effect, and a macOS Video display that shows a
 Rec.709 BT.1886 delivery as a Mac plays it. It is generated from the core's matrices, so
-it and minColor Input agree; the panel's Fix OCIO installs it per project.
-`ocio/mincolor-unmanaged.ocio` is Fix OCIO's **Unmanaged** choice: a
+it and minColor Input agree; the panel's Set OCIO installs it per project.
+`ocio/mincolor-unmanaged.ocio` is Set OCIO's **Unmanaged** choice: a
 pass-through config where the Output encodes for the display and the config only
 corrects the viewer on macOS.
 
@@ -119,7 +119,7 @@ Manual and passive: it never reads or reports the project's colour settings
 (AE's scripting answers for those can be stale), and nothing a frame renders
 depends on it. **Add Output** puts an adjustment layer with minColor Output at the
 top of the active comp (under a macOS Fix layer if there is one), once per comp,
-as one undo step. **Fix OCIO** asks for a working space (ACEScg,
+as one undo step. **Set OCIO** asks for a working space (ACEScg,
 ACES2065-1, Linear Rec.709, Linear P3-D65, Linear Rec.2020, or Unmanaged for the
 pass-through `mincolor-unmanaged.ocio`), saves the project, writes the config into `minColor/` next to the `.aep`, makes it the
 project's OCIO config (OCIO on; on an Adobe-engine project that changes how
@@ -153,7 +153,7 @@ Measured on AE 26.5 with a project that uses all of it:
   effects still render; only the viewer's macOS correction is gone. If the folder
   comes back before the project is saved, the project opens on OCIO again by
   itself. If the project is saved in the fallback, the OCIO setting is lost:
-  press **Fix OCIO** (it writes a fresh `minColor/`).
+  press **Set OCIO** (it writes a fresh `minColor/`).
 - **The minColor effects are not installed**: the project opens, every instance
   is kept with all of its settings and renders as if it were off, and installing
   the effects brings them back unchanged, even after saving without them. The

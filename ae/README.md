@@ -17,7 +17,7 @@ never asks AE what the layer or the project is.
 Two ways to set a project up. Either way the effects never ask AE what a layer
 or the project is; the minColor panel (`panel/`) does the setup for you.
 
-**OCIO (linear conversions; the panel's Fix OCIO).** The project's OCIO config is
+**OCIO (linear conversions; the panel's Set OCIO).** The project's OCIO config is
 `minColor/mincolor.ocio` next to the `.aep` (generated from this core's matrices,
 `ocio/mincolor.ocio` in the repository) and its working space one of ACEScg,
 ACES2065-1, Linear Rec.709, Linear P3-D65 or Linear Rec.2020, chosen in Fix
@@ -35,7 +35,7 @@ OCIO. Depth 32 bpc.
    or **Rec.709 (BT.1886)** elsewhere, **Display P3** on a P3 monitor where AE's viewer
    is not colour managed (Windows; P3-D65, the sRGB curve), view **Un-tone-mapped**.
    The display is chosen in the Composition panel and kept per project; a project
-   Fix OCIO has just set up starts at None (scripts cannot set it). **macOS Video (AE
+   Set OCIO has just configured starts at None (scripts cannot set it). **macOS Video (AE
    viewport fix)** shows a Rec.709 BT.1886 delivery as a Mac plays it (encoded 2.4,
    decoded with the sRGB curve: lighter midtones, lifted shadows; grey 0.18 shows
    at 0.486 instead of 0.459). Deliver through
@@ -63,7 +63,7 @@ passes pixels through and the effects do everything:
 3. **minColor macOS Fix** on a guide layer at the very top to correct the viewer
    on a Mac.
 
-**Unmanaged (OCIO pass-through; Fix OCIO's "Unmanaged").** The same as the Adobe
+**Unmanaged (OCIO pass-through; Set OCIO's "Unmanaged").** The same as the Adobe
 engine setup, but in OCIO: the project's config is
 `minColor/mincolor-unmanaged.ocio`, whose working space "minColor Output" is
 only a label and whose views pass pixels through. The Output encodes for the
@@ -159,7 +159,7 @@ nits).
 
 **One encoding.** The Output has a single Display Encoding: what it writes is
 what the comp shows and what renders. In an OCIO project set up by the panel's
-Fix OCIO, the Output reads the working space and hands back linear light in it
+Set OCIO, the Output reads the working space and hands back linear light in it
 (*None - Linear / Working Gamut*); the config's view encodes for the screen and
 the Output Module's *Output Color Space* encodes deliveries. In an Adobe-engine
 project (working space None, footage on Preserve RGB) the Output's encoding is

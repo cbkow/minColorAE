@@ -2,7 +2,7 @@
 
 minColorAE began on 2026-10-04 as a fresh repository. Its engine (the core,
 the After Effects effects, the tests and the viewport shim, now
-`ocio/mincolor-unmanaged.ocio`, Fix OCIO's Unmanaged choice beside the generated `ocio/mincolor.ocio`) was carried over
+`ocio/mincolor-unmanaged.ocio`, Set OCIO's Unmanaged choice beside the generated `ocio/mincolor.ocio`) was carried over
 from the author's earlier private exploration repositories, which are kept
 only as historical reference and are not dependencies of this one. The
 workflow layer (panel, presets, sidecar folder) is new here.
