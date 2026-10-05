@@ -13,7 +13,8 @@ button reports only what that press did, in the text under the buttons.
 
 Asks for a working space, then:
 
-1. saves the project;
+1. sets the project's depth to **32 bpc** (8 and 16 bpc clip linear light at 1.0)
+   and saves the project;
 2. writes the config into `minColor/` next to the `.aep` (`mincolor.ocio`, or
    `mincolor-unmanaged.ocio` for *Unmanaged*);
 3. makes it the project's OCIO config with that working space (OCIO on);

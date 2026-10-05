@@ -4,11 +4,10 @@ From an empty project to a render, in the setup most projects want: OpenColorIO
 with a linear working space. [Color setups](color-setups.md) covers the
 alternatives.
 
-## 1. Save the project at 32 bpc
+## 1. Save the project
 
-Create a project, set **File > Project Settings > Color > Depth** to **32 bits per
-channel**, and save it. Set OCIO puts its files in a `minColor` folder next to the
-`.aep`, so the project has to have a place on disk first.
+Create a project and save it. Set OCIO puts its files in a `minColor` folder next
+to the `.aep`, so the project has to have a place on disk first.
 
 ## 2. Set OCIO
 
@@ -18,8 +17,9 @@ are there for pipelines that already use them.
 
 <img src="images/panel.png" width="260" alt="The minColor panel"> <img src="images/dialog_set_ocio.png" width="460" alt="Set OCIO: choose the working space">
 
-The panel saves the project, writes `minColor/mincolor.ocio`, makes it the
-project's OCIO config with that working space, and reopens the project. A backup
+The panel sets the project to 32 bpc (linear light above 1.0 clips at 8 and 16
+bpc), saves it, writes `minColor/mincolor.ocio`, makes it the project's OCIO
+config with that working space, and reopens the project. A backup
 of the project as it was goes in `minColor/` too. Undo history is cleared by the
 reopen.
 

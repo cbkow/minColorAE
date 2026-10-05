@@ -153,7 +153,7 @@
     var dlg = new Window("dialog", "minColor: Set OCIO");
     dlg.orientation = "column"; dlg.alignChildren = ["fill", "top"]; dlg.margins = 14; dlg.spacing = 10;
     var t = dlg.add("statictext", undefined,
-      "Saves this project, points its OCIO config at minColor/" + CONFIG_NAME + " with the working space below " +
+      "Sets 32 bpc, saves this project, points its OCIO config at minColor/" + CONFIG_NAME + " with the working space below " +
       "(Unmanaged: the pass-through minColor/" + UNMANAGED_NAME + "), " +
       "and reopens it (undo history is cleared; a backup goes in minColor/). On an Adobe-engine project this " +
       "changes how footage is interpreted.", { multiline: true });
@@ -192,6 +192,10 @@
       app.project.ocioConfigurationFile = cfg.fsName;
       if (app.project.colorManagementSystem !== 1) app.project.colorManagementSystem = 1;
     } catch (e) { out.push("After Effects refused the config: " + e.toString() + ". Project not saved."); return out; }
+    /* 32 bpc: linear light above 1.0 (highlights, HDR) clips at 8 and 16 bpc */
+    var depthWas = 0;
+    try { if (app.project.bitsPerChannel !== 32) { depthWas = app.project.bitsPerChannel; app.project.bitsPerChannel = 32; } }
+    catch (e) { out.push("Could not set 32 bpc (" + e.toString() + "); set it in Project Settings > Color."); }
     var path = f.fsName;
     app.project.save();
     var backup = new File(dir.fsName + "/" + f.name.replace(/\.aep$/i, "") + ".before-set-ocio.aep");
@@ -207,6 +211,7 @@
     if (!writeText(new File(dir.fsName + "/project.json"), '{\n  "working": "' + name + '"\n}\n'))
       out.push("Could not write minColor/project.json; Apply In and Add Output will not follow the working space.");
     out.push("Set: OCIO config minColor/" + cfgName + ", working space " + wsName + (W.gamut ? "" : " (Unmanaged: the Output encodes for the display)") + ". Project reopened.");
+    if (depthWas) out.push("Depth set to 32 bpc (was " + depthWas + ").");
     out.push("Backup: minColor/" + backup.name.replace(/%20/g, " "));
     if (prev && prev.working !== name) out.push("The working space changed from " + prev.working + ": press Apply In and check each minColor Output's Input Gamut.");
     return out;
@@ -524,7 +529,7 @@
 
   var pProject = section("Project");
   var bSet = button(pProject, "Set OCIO",
-    "Saves the project, sets its OCIO config to minColor/mincolor.ocio with the working space you\n" +
+    "Sets 32 bpc, saves the project, sets its OCIO config to minColor/mincolor.ocio with the working space you\n" +
     "choose (or Unmanaged), and reopens it (a backup goes in minColor/; undo history is cleared).\n" +
     "Turns OCIO on: on an Adobe-engine project that changes how footage is interpreted.\n" +
     "Press again after moving the project.");
