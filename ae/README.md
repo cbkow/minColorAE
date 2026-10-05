@@ -124,7 +124,7 @@ reimplemented from Blender's method (see `NOTICE`, `CHANGES-AGX.md`). Unlike a
 LUT, every part of it can be dialled.
 
 Put it on an adjustment layer over the comp's content, under minColor Output and
-any macOS Fix layer (the panel's **Add AgX**). In an OCIO project the view and
+any macOS Fix layer. In an OCIO project the view and
 the Output Module then encode its result as they would any linear light; in an
 Unmanaged or Adobe-engine project, minColor Output with Rendering
 *Un-tone-mapped* encodes it. AgX is a complete image formation: don't follow it
@@ -132,7 +132,7 @@ with the Output's OpenDRT rendering, and it needs no Knee (it already lands
 everything at or under Peak). Work in 32 bpc: 8 and 16 bpc clip at 1.0 (100
 nits).
 
-- **Working Gamut**: the comp's working space (Add AgX sets it from the project).
+- **Working Gamut**: the comp's working space.
   AgX works in Rec.2020, so this tells it what the pixels are; set wrong, saturated
   colours render wrong. Neutrals do not depend on it.
 - **Target Gamut**: the gamut the result has to fit, default *Rec.709 (sRGB)*;

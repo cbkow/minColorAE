@@ -13,8 +13,8 @@
 //
 // Sidecar: <project folder>/minColor/ holds mincolor.ocio (the OCIO config),
 // in.json (the In presets, written from the panel's starter on first use) and
-// project.json (the working space Fix OCIO set, which Apply In, Add Output and
-// Add AgX follow: the panel's own record, never read back from AE). Fix OCIO writes the
+// project.json (the working space Fix OCIO set, which Apply In and Add Output
+// follow: the panel's own record, never read back from AE). Fix OCIO writes the
 // config there, makes it the project's OCIO config, and sets the chosen working
 // space by editing the saved .aep and reopening it: AE has no API that sets an
 // OCIO working space (the scripting setter leaves it None, the plug-in suites are
@@ -44,7 +44,6 @@
   var MN_OUTPUT = "ski.bialkow minColor Output";
   var MN_MACFIX = "ski.bialkow minColor macOS Fix";
   var MN_INPUT = "ski.bialkow minColor Input";
-  var MN_AGX = "ski.bialkow minColor AgX";
   var IN_JSON = @MINCOLOR_IN_JSON_JS@;                 /* the starter minColor/in.json */
   var IN_GAMUTS = @MINCOLOR_INPUT_GAMUTS@;             /* the Input's menus, in menu order (item k = value k + 1) */
   var IN_TRANSFERS = @MINCOLOR_INPUT_TRANSFERS@;
@@ -74,10 +73,8 @@
     win = new Window("palette", "minColor", undefined, { resizeable: true });
     $.global.__minColorAEWin = win;   /* a DoScript-launched palette needs a reference to outlive the script */
   }
-  /* Layout as the Union Project Manager panel it docks beside: 15 margins, 10 between
-     rows, 30 px pills, the block centred vertically in the dock. Everything sits in
-     one group so it centres as a unit; the report box has a fixed size, so changing
-     text never moves the buttons. */
+  /* Everything sits in one group, centred vertically in the dock; the report box has a
+     fixed size, so changing text never moves the buttons. */
   win.orientation = "column"; win.alignChildren = ["fill", "center"]; win.spacing = 0; win.margins = 15;
   var body = win.add("group");
   body.orientation = "column"; body.alignChildren = ["fill", "top"]; body.alignment = ["fill", "center"]; body.spacing = 10;
@@ -208,7 +205,7 @@
       return out;
     }
     if (!writeText(new File(dir.fsName + "/project.json"), '{\n  "working": "' + name + '"\n}\n'))
-      out.push("Could not write minColor/project.json; Apply In, Add Output and Add AgX will not follow the working space.");
+      out.push("Could not write minColor/project.json; Apply In and Add Output will not follow the working space.");
     out.push("Fixed: OCIO config minColor/" + cfgName + ", working space " + wsName + (W.gamut ? "" : " (Unmanaged: the Output encodes for the display)") + ". Project reopened.");
     out.push("Backup: minColor/" + backup.name.replace(/%20/g, " "));
     if (prev && prev.working !== name) out.push("The working space changed from " + prev.working + ": press Apply In and check each minColor Output's Input Gamut.");
@@ -511,137 +508,37 @@
     return out;
   }
 
-  /* Add AgX: an adjustment layer carrying minColor AgX, its Working Gamut set to the
-     working space Fix OCIO chose (the Working Gamut menu is the Input's, so W.working
-     indexes it too). AgX forms the picture the Output then encodes, so it goes under the
-     comp's Output and macOS Fix layers, or at the top without them. One per comp.
-     Target Gamut stays Rec.709 (sRGB): the panel cannot know the delivery. */
-  function addAgX() {
-    var out = notInstalled("minColor AgX");
-    if (out) return out;
-    out = [];
-    var comp = app.project.activeItem;
-    if (!(comp instanceof CompItem)) { out.push("Open or select a comp first; nothing added."); return out; }
-    var existing = findLayers(comp, MN_AGX);
-    if (existing.length) {
-      out.push("\"" + comp.name + "\" already has minColor AgX on layer " + existing[0].index +
-               " (\"" + existing[0].name + "\"); nothing added.");
-      return out;
-    }
-    var above = findLayers(comp, MN_MACFIX).concat(findLayers(comp, MN_OUTPUT)), low = null;
-    for (var i = 0; i < above.length; i++) if (!low || above[i].index > low.index) low = above[i];
-    app.beginUndoGroup("minColor: Add AgX");
-    try {
-      var l = comp.layers.addSolid([1, 1, 1], "minColor AgX", comp.width, comp.height, comp.pixelAspect, comp.duration);
-      l.adjustmentLayer = true;
-      var fx = l.property("ADBE Effect Parade").addProperty(MN_AGX);
-      var P0 = readProjectJSON(), W = P0 ? managedFor(P0.working) : null;
-      if (W) fx.property("Working Gamut").setValue(W.working);
-      if (low) l.moveAfter(low);
-      out.push("Added minColor AgX to \"" + comp.name + "\" on layer " + l.index +
-               (low ? ", under \"" + low.name + "\"" : ", at the top") +
-               (W ? "; Working Gamut " + W.gamut : "; Working Gamut ACEScg (no working space on record)") +
-               ", Target Rec.709 (change for P3 / Rec.2020 deliveries).");
-    } catch (e) {
-      out.push("Add AgX failed: " + e.toString());
-    }
-    app.endUndoGroup();
-    return out;
-  }
-
   // ---- UI ----------------------------------------------------------------------------
-  /* Pill buttons in the AE-native (Spectrum 2) theme: an accent for the main action,
-     a quiet outline for the rest. Fills only: AE remaps non-neutral pens. Height 30
-     here (the theme's default is 24; the Union Project Manager uses 30). */
-  function flatButton(parent, label, opts) {
-    opts = opts || {};
-    var b = parent.add("iconbutton", undefined, undefined, { style: "toolbutton" });
-    b.textLabel = label; b.hov = false; b.dn = false;
-    b.preferredSize.height = opts.height || 30; b.alignment = ["fill", "center"];
-    if (opts.tip) b.helpTip = opts.tip;
-    b.onDraw = function () {
-      var g = this.graphics, s = this.size;
-      function pill(x, y, w, h, col) {   /* caps + rect as ONE path, ONE fill (separate fills stack alpha) */
-        g.newPath();
-        g.ellipsePath(x, y, h, h);
-        g.ellipsePath(x + w - h, y, h, h);
-        g.rectPath(x + h / 2, y, w - h, h);
-        g.fillPath(g.newBrush(g.BrushType.SOLID_COLOR, col));
-      }
-      var accent = [0.00784, 0.39608, 0.86275, 1];
-      if (opts.primary) {
-        var k = this.dn ? 0.68 : (this.hov ? 0.82 : 1);   /* Spectrum accent darkens on hover */
-        var fill = [accent[0] * k, accent[1] * k, accent[2] * k, 1];
-        pill(0, 0, s[0], s[1], fill);
-      } else {
-        var rimA = this.dn ? 0.34 : (this.hov ? 0.32 : 0.26);
-        var center = this.dn ? [0.24, 0.24, 0.24, 1] : (this.hov ? [0.30, 0.30, 0.30, 1] : [0.13, 0.13, 0.13, 1]);
-        pill(0, 0, s[0], s[1], [1, 1, 1, rimA]);
-        pill(2, 2, s[0] - 4, s[1] - 4, center);
-      }
-      var f = ScriptUI.newFont("dialog", opts.primary ? "BOLD" : "REGULAR", 11);
-      var ts = g.measureString(this.textLabel, f);
-      var textCol = opts.primary ? [0.97, 0.97, 0.97, 1] : [0.86, 0.86, 0.86, 1];
-      g.drawString(this.textLabel, g.newPen(g.PenType.SOLID_COLOR, textCol, 1),
-                   Math.max(2, (s[0] - ts.width) / 2), Math.max(0, (s[1] - ts.height) / 2 - 1), f);
-    };
-    b.addEventListener("mouseover", function () { this.hov = true;  try { this.window.update(); } catch (e) {} });
-    b.addEventListener("mouseout",  function () { this.hov = false; this.dn = false; try { this.window.update(); } catch (e) {} });
-    b.addEventListener("mousedown", function () { this.dn = true;  try { this.window.update(); } catch (e) {} });
-    b.addEventListener("mouseup",   function () { this.dn = false; try { this.window.update(); } catch (e) {} });
+  /* Stock ScriptUI only (owner-drawn pills and glyphs glitched in AE's dock): two titled
+     panels of plain buttons, a fixed-size report box, the version. */
+  function section(title) {
+    var p = body.add("panel", undefined, title);
+    p.orientation = "column"; p.alignChildren = ["fill", "top"]; p.spacing = 6; p.margins = [10, 15, 10, 10];
+    return p;
+  }
+  function button(parent, label, tip) {
+    var b = parent.add("button", undefined, label);
+    if (tip) b.helpTip = tip;
     return b;
   }
 
-  /* Section headers as the Union Project Manager's: an 18 px owner-drawn glyph (the
-     minColor icon family, neutral grey: AE remaps hues), a bold label, a hairline rule. */
-  var IC = [0.72, 0.72, 0.72, 1];
-  function pen(g, w) { return g.newPen(g.PenType.SOLID_COLOR, IC, w || 1.4); }
-  function brush(g) { return g.newBrush(g.BrushType.SOLID_COLOR, IC); }
-  var GLYPH = {
-    gear: function (g) {   /* the project and its settings */
-      g.newPath(); g.ellipsePath(5, 5, 8, 8); g.strokePath(pen(g, 1.6));
-      for (var i = 0; i < 8; i++) { var a = i * Math.PI / 4, c = Math.cos(a), sn = Math.sin(a);
-        g.newPath(); g.moveTo(9 + c * 4.6, 9 + sn * 4.6); g.lineTo(9 + c * 7.2, 9 + sn * 7.2); g.strokePath(pen(g, 1.6)); }
-      g.newPath(); g.ellipsePath(7.8, 7.8, 2.4, 2.4); g.fillPath(brush(g));
-    },
-    bars: function (g) {   /* a layer stack */
-      g.newPath(); g.rectPath(3, 4.4, 10, 2.4); g.fillPath(brush(g));
-      g.newPath(); g.rectPath(6, 7.8, 9, 2.4); g.fillPath(brush(g));
-      g.newPath(); g.rectPath(4, 11.2, 7, 2.4); g.fillPath(brush(g));
-    }
-  };
-  function themeHeader(parent, title, glyph) {
-    var hdr = parent.add("group"); hdr.spacing = 6; hdr.alignChildren = ["left", "center"]; hdr.alignment = ["fill", "top"];
-    var ic = hdr.add("iconbutton", undefined, undefined, { style: "toolbutton" }); ic.preferredSize = [18, 18];
-    ic.onDraw = function () { glyph(this.graphics); };
-    var st = hdr.add("statictext", undefined, title);
-    try { st.graphics.font = ScriptUI.newFont("dialog", "BOLD", 11); } catch (eH) {}
-    var ln = hdr.add("panel"); ln.alignment = ["fill", "center"]; ln.preferredSize.height = 2; ln.minimumSize.width = 20;
-    return hdr;
-  }
-
-  themeHeader(body, "Project", GLYPH.gear);
-  var bFix = flatButton(body, "Fix OCIO", {
-    tip: "Saves the project, sets its OCIO config to minColor/mincolor.ocio with the working space you\n" +
-         "choose (or Unmanaged), and reopens it (a backup goes in minColor/; undo history is cleared).\n" +
-         "Turns OCIO on: on an Adobe-engine project that changes how footage is interpreted.\n" +
-         "Press again after moving the project." });
-  var bRules = flatButton(body, "In Rules\u2026", {
-    tip: "Edit this project's In rules (minColor/in.json): which Input settings each file extension gets" });
-  var gap = body.add("group"); gap.preferredSize.height = 4;   /* a little more air between sections */
-  themeHeader(body, "Layers", GLYPH.bars);
-  var bIn = flatButton(body, "Apply In", { primary: true,
-    tip: "Sets minColor Input on the selected footage layers from minColor/in.json, by file extension\n" +
-         "(adds the effect first in the stack where missing). Shows the changes before applying." });
-  var bAdd = flatButton(body, "Add Output", { primary: true,
-    tip: "Adjustment layer with minColor Output at the top of the active comp (under a macOS Fix layer if there is one)" });
-  var bAgX = flatButton(body, "Add AgX", {
-    tip: "Adjustment layer with minColor AgX (Blender's AgX at its defaults), Working Gamut set to the\n" +
-         "project's working space, under the comp's Output / macOS Fix layers (or at the top)" });
+  var pProject = section("Project");
+  var bFix = button(pProject, "Fix OCIO",
+    "Saves the project, sets its OCIO config to minColor/mincolor.ocio with the working space you\n" +
+    "choose (or Unmanaged), and reopens it (a backup goes in minColor/; undo history is cleared).\n" +
+    "Turns OCIO on: on an Adobe-engine project that changes how footage is interpreted.\n" +
+    "Press again after moving the project.");
+  var bRules = button(pProject, "In Rules\u2026",
+    "Edit this project's In rules (minColor/in.json): which Input settings each file extension gets");
+  var pLayers = section("Layers");
+  var bIn = button(pLayers, "Apply In",
+    "Sets minColor Input on the selected footage layers from minColor/in.json, by file extension\n" +
+    "(adds the effect first in the stack where missing). Shows the changes before applying.");
+  var bAdd = button(pLayers, "Add Output",
+    "Adjustment layer with minColor Output at the top of the active comp (under a macOS Fix layer if there is one)");
   var report = body.add("statictext", undefined, "", { multiline: true });
   report.preferredSize = [240, 60];
-  var ver = body.add("statictext", undefined, "minColor " + VERSION);
-  ver.graphics.foregroundColor = ver.graphics.newPen(ver.graphics.PenType.SOLID_COLOR, [0.55, 0.55, 0.55, 1], 1);
+  body.add("statictext", undefined, "minColor " + VERSION);
 
   function run(fn) {
     var lines;
@@ -650,13 +547,12 @@
     log(lines.join(" | "));
     try { win.update(); } catch (e) {}
   }
-  bIn.onClick = function () { this.active = false; run(applyIn); };
-  bRules.onClick = function () { this.active = false; run(editInRules); };
-  bAdd.onClick = function () { this.active = false; run(addOutput); };   /* active=false: ScriptUI keeps a pressed look otherwise */
-  bFix.onClick = function () { this.active = false; run(fixOCIO); };
-  bAgX.onClick = function () { this.active = false; run(addAgX); };
+  bIn.onClick = function () { run(applyIn); };
+  bRules.onClick = function () { run(editInRules); };
+  bAdd.onClick = function () { run(addOutput); };
+  bFix.onClick = function () { run(fixOCIO); };
 
-  win.__mc = { applyIn: bIn, inRules: bRules, addOutput: bAdd, addAgX: bAgX, fixOCIO: bFix, report: report };   /* for unattended tests */
+  win.__mc = { applyIn: bIn, inRules: bRules, addOutput: bAdd, fixOCIO: bFix, report: report };   /* for unattended tests */
   win.layout.layout(true);
   win.onResizing = win.onResize = function () { try { this.layout.resize(); } catch (e) {} };
   if (win instanceof Window) { win.center(); win.show(); }

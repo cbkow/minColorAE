@@ -119,15 +119,13 @@ Manual and passive: it never reads or reports the project's colour settings
 (AE's scripting answers for those can be stale), and nothing a frame renders
 depends on it. **Add Output** puts an adjustment layer with minColor Output at the
 top of the active comp (under a macOS Fix layer if there is one), once per comp,
-as one undo step. **Add AgX** does the same for minColor AgX, under the comp's
-Output and macOS Fix layers, with Working Gamut set to the project's working space
-(Target Gamut stays Rec.709). **Fix OCIO** asks for a working space (ACEScg,
+as one undo step. **Fix OCIO** asks for a working space (ACEScg,
 ACES2065-1, Linear Rec.709, Linear P3-D65, Linear Rec.2020, or Unmanaged for the
 pass-through `mincolor-unmanaged.ocio`), saves the project, writes the config into `minColor/` next to the `.aep`, makes it the
 project's OCIO config (OCIO on; on an Adobe-engine project that changes how
 footage is interpreted; the viewer's display is still picked by hand, per project,
 in the Composition panel: AE has no API for it), sets the working space, records it in
-`minColor/project.json` (Apply In, Add Output and Add AgX follow it) and reopens the
+`minColor/project.json` (Apply In and Add Output follow it) and reopens the
 project (undo history is
 cleared; the saved file before the change is kept in `minColor/`). AE has no API
 that sets an OCIO working space, so the panel writes it into the saved `.aep`.
@@ -159,7 +157,7 @@ Measured on AE 26.5 with a project that uses all of it:
 - **The minColor effects are not installed**: the project opens, every instance
   is kept with all of its settings and renders as if it were off, and installing
   the effects brings them back unchanged, even after saving without them. The
-  panel's Apply In, Add Output and Add AgX refuse to run without the effect they add
+  panel's Apply In and Add Output refuse to run without the effect they add
   (AE would otherwise add placeholders that do nothing).
 - **The panel is not installed**: nothing changes; it only adds effects and
   writes files.
