@@ -188,14 +188,14 @@
     } else if (readText(cfg) !== cfgText) {
       out.push("Kept minColor/" + cfgName + " (it differs from this panel's " + VERSION + "; delete it for a fresh copy).");
     }
+    /* 32 bpc first: AE refuses OCIO at any other depth, and linear light above 1.0 clips at 8 and 16 */
+    var depthWas = 0;
+    try { if (app.project.bitsPerChannel !== 32) { depthWas = app.project.bitsPerChannel; app.project.bitsPerChannel = 32; } }
+    catch (e) { out.push("Could not set 32 bpc (" + e.toString() + "). Nothing changed."); return out; }
     try {
       app.project.ocioConfigurationFile = cfg.fsName;
       if (app.project.colorManagementSystem !== 1) app.project.colorManagementSystem = 1;
     } catch (e) { out.push("After Effects refused the config: " + e.toString() + ". Project not saved."); return out; }
-    /* 32 bpc: linear light above 1.0 (highlights, HDR) clips at 8 and 16 bpc */
-    var depthWas = 0;
-    try { if (app.project.bitsPerChannel !== 32) { depthWas = app.project.bitsPerChannel; app.project.bitsPerChannel = 32; } }
-    catch (e) { out.push("Could not set 32 bpc (" + e.toString() + "); set it in Project Settings > Color."); }
     var path = f.fsName;
     app.project.save();
     var backup = new File(dir.fsName + "/" + f.name.replace(/\.aep$/i, "") + ".before-set-ocio.aep");
