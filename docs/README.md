@@ -21,7 +21,7 @@ minColor AgX at its defaults.*
 
 ## Guides
 
-- [Colour setups](color-setups.md): the three ways to set up a project (OCIO,
+- [Color setups](color-setups.md): the three ways to set up a project (OCIO,
   Unmanaged, Adobe engine), the viewer displays, and how deliveries are encoded.
 - [The minColor panel](panel.md): Set OCIO, In Rules, Apply In, Add Output.
 - [Animation presets](presets.md): one-click Input, Output and AgX settings.

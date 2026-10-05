@@ -1,7 +1,7 @@
 # Quick start
 
 From an empty project to a render, in the setup most projects want: OpenColorIO
-with a linear working space. [Colour setups](color-setups.md) covers the
+with a linear working space. [Color setups](color-setups.md) covers the
 alternatives.
 
 ## 1. Save the project at 32 bpc

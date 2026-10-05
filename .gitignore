@@ -26,3 +26,8 @@ venv/
 # macOS
 .DS_Store
 ._*
+
+# proof: the rendered EXRs (GBs; regenerate with proof/blender/make_scene.py) and AE's own copies
+proof/blender/exr/
+proof/Auto-Save/
+proof/minColor/*.before-set-ocio.aep

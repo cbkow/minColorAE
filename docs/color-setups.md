@@ -1,4 +1,4 @@
-# Colour setups
+# Color setups
 
 minColor works in three project setups. The effects behave the same in all of
 them; what changes is who encodes the picture for the screen and for the render.

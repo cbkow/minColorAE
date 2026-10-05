@@ -15,4 +15,4 @@ Render Queue and Media Encoder; on an ordinary layer the fix would be baked into
 the render.
 
 In an OCIO project you don't need it: pick the **macOS (AE viewport fix)** display
-instead (see [colour setups](../color-setups.md#the-mac-viewer-and-why-there-is-a-fix)).
+instead (see [color setups](../color-setups.md#the-mac-viewer-and-why-there-is-a-fix)).
