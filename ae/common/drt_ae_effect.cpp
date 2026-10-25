@@ -27,6 +27,7 @@
 #include "AE_EffectCB.h"
 #include "AE_EffectCBSuites.h"
 #include "AE_EffectGPUSuites.h"
+#include "AE_GeneralPlug.h"
 #include "AE_Macros.h"
 #include "Param_Utils.h"
 #include "Smart_Utils.h"
@@ -85,7 +86,7 @@ using drtae::dlog;
    and mirror it in the PiPLs' AE_Effect_Version: PF_VERSION(major, minor, 0, DEVELOP, 1). */
 #define DRT_MAJOR_VERSION 0
 #define DRT_MINOR_VERSION 1
-#define DRT_BUG_VERSION   3   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges; 3: the AgX (2026-10-04). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
+#define DRT_BUG_VERSION   4   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges; 3: the AgX (2026-10-04); 4: the OpenDRT look controls hidden (2026-10-25). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
 
 extern "C" {
 DllExport PF_Err EffectMain(PF_Cmd cmd, PF_InData *in_data, PF_OutData *out_data,
@@ -177,6 +178,70 @@ int choiceToField(const Row &r, int choice)
     if (k < 0 || k >= popupChoices(r)) return r.map ? r.map[0] : 0;
     return r.map ? r.map[k] : k;
 }
+
+/* Rows not shown since 0.1.4: the OpenDRT look and tonescale controls, and the Output's
+   Rendering / Surround / Clamp / Peak, which only the OpenDRT rendering reads. minColor
+   offers the un-tone-mapped conversion; the processes that use OpenDRT underneath (the
+   Input's inverse transfers, the Grade's zones) keep running on these rows' values,
+   which are still read, so nothing renders differently. Ids and streams are kept. */
+bool rowHidden(int row)
+{
+    const Row &r = DRT_ROWS[row];
+    (void)r;
+#if DRT_ROLE_OUTPUT
+    if (row >= drtae::kOutputLookRowsFrom && row < drtae::kOutputLookRowsFrom + drtae::kLookRowCount) return true;
+    return (r.kind == drtae::kPopup && (r.i == &drt::DrtParams::out_view || r.i == &drt::DrtParams::tn_su)) ||
+           (r.kind == drtae::kCheck && r.i == &drt::DrtParams::clamp_out);
+#elif DRT_ROLE_INPUT
+    /* Peak stays: an inverse transfer reads the master's peak */
+    return row >= drtae::kInputLookTableFrom && row < drtae::kInputLookTableFrom + drtae::kLookRowCount &&
+           !(r.kind == drtae::kFloat && r.f == &drt::DrtParams::tn_Lp);
+#elif DRT_ROLE_GRADE
+    /* the reference group keeps its twirl, Display Encoding and Peak */
+    return row > drtae::kGradeReferenceRowsFrom && row < DRT_ROW_COUNT - 1 && r.kind != drtae::kPresetDisplay &&
+           !(r.kind == drtae::kFloat && r.f == &drt::DrtParams::tn_Lp);
+#else
+    (void)row;
+    return false;
+#endif
+}
+
+#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT || DRT_ROLE_GRADE
+AEGP_PluginID g_aegpId = 0;   /* GlobalSetup; for the stream calls in hideStreams() */
+
+/* PF_PUI_INVISIBLE from ParamsSetup is enough on a fresh instance, but an instance saved
+   before 0.1.4 still shows every hidden group's twirl and any hidden row whose stored
+   value is not the default (AE 26.5, checked 2026-10-25). So each instance's hidden
+   streams also get the dynamic HIDDEN flag, as the SDK's Supervisor sample hides params. */
+void hideStreams(PF_InData *in_data)
+{
+    if (!g_aegpId) return;
+    SPBasicSuite *sp = in_data->pica_basicP;
+    AEGP_PFInterfaceSuite1 *pfi = nullptr; AEGP_StreamSuite7 *ss = nullptr;
+    AEGP_DynamicStreamSuite4 *ds = nullptr; AEGP_EffectSuite5 *es = nullptr;
+    const bool ok = sp->AcquireSuite(kAEGPPFInterfaceSuite, kAEGPPFInterfaceSuiteVersion1, (const void **)&pfi) == kSPNoError &&
+                    sp->AcquireSuite(kAEGPStreamSuite, kAEGPStreamSuiteVersion7, (const void **)&ss) == kSPNoError &&
+                    sp->AcquireSuite(kAEGPDynamicStreamSuite, kAEGPDynamicStreamSuiteVersion4, (const void **)&ds) == kSPNoError &&
+                    sp->AcquireSuite(kAEGPEffectSuite, kAEGPEffectSuiteVersion5, (const void **)&es) == kSPNoError;
+    AEGP_EffectRefH meH = nullptr;
+    if (ok && pfi->AEGP_GetNewEffectForEffect(g_aegpId, in_data->effect_ref, &meH) == A_Err_NONE && meH) {
+        for (int k = 0; k < DRT_ROW_COUNT; ++k) {
+            if (!rowHidden(k)) continue;
+            AEGP_StreamRefH st = nullptr;
+            if (ss->AEGP_GetNewEffectStreamByIndex(g_aegpId, meH, paramIndex(k), &st) != A_Err_NONE || !st) continue;   /* group ends have no stream */
+            AEGP_DynStreamFlags f = 0;
+            if (ds->AEGP_GetDynamicStreamFlags(st, &f) == A_Err_NONE && !(f & AEGP_DynStreamFlag_HIDDEN))
+                ds->AEGP_SetDynamicStreamFlag(st, AEGP_DynStreamFlag_HIDDEN, FALSE, TRUE);
+            ss->AEGP_DisposeStream(st);
+        }
+        es->AEGP_DisposeEffect(meH);
+    }
+    if (pfi) sp->ReleaseSuite(kAEGPPFInterfaceSuite, kAEGPPFInterfaceSuiteVersion1);
+    if (ss)  sp->ReleaseSuite(kAEGPStreamSuite, kAEGPStreamSuiteVersion7);
+    if (ds)  sp->ReleaseSuite(kAEGPDynamicStreamSuite, kAEGPDynamicStreamSuiteVersion4);
+    if (es)  sp->ReleaseSuite(kAEGPEffectSuite, kAEGPEffectSuiteVersion5);
+}
+#endif
 
 /* Effect defaults: the DCTL's StickShift defaults with the input set for a
    colour-managed compositor (linear ACEScg) instead of Resolve's DWG / DI. */
@@ -275,9 +340,18 @@ PF_Err About(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF_Layer
     return PF_Err_NONE;
 }
 
-PF_Err GlobalSetup(PF_InData *, PF_OutData *out_data, PF_ParamDef *[], PF_LayerDef *)
+PF_Err GlobalSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF_LayerDef *)
 {
     out_data->my_version = PF_VERSION(DRT_MAJOR_VERSION, DRT_MINOR_VERSION, DRT_BUG_VERSION, PF_Stage_DEVELOP, 1);
+#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT || DRT_ROLE_GRADE
+    AEGP_UtilitySuite6 *u = nullptr;   /* an id for hideStreams(); without it old instances only look untidy */
+    if (in_data->pica_basicP->AcquireSuite(kAEGPUtilitySuite, kAEGPUtilitySuiteVersion6, (const void **)&u) == kSPNoError && u) {
+        u->AEGP_RegisterWithAEGP(nullptr, DRT_EFFECT_NAME, &g_aegpId);
+        in_data->pica_basicP->ReleaseSuite(kAEGPUtilitySuite, kAEGPUtilitySuiteVersion6);
+    }
+#else
+    (void)in_data;
+#endif
 #if DRT_ROLE_GRADE
     drtwheels::g_log = dlog;
 #endif
@@ -296,19 +370,18 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
         const Row &r = DRT_ROWS[row];
         const int id = r.id ? r.id : ++autoId;   /* the id AE files the stream under; params[] stays positional */
         AEFX_CLR_STRUCT(def);
+        /* the SDK's ...X macros clear def, so floats and checkboxes use the plain ones to keep this */
+        if (r.kind == drtae::kFloatHidden || r.kind == drtae::kPopupHidden || rowHidden(row)) def.ui_flags = PF_PUI_INVISIBLE;
         switch (r.kind) {
         case drtae::kFloatHidden:
-            def.ui_flags = PF_PUI_INVISIBLE;
-            /* fall through */
         case drtae::kFloat:
-            PF_ADD_FLOAT_SLIDERX(r.name, r.lo, r.hi, r.shi > r.slo ? r.slo : r.lo, r.shi > r.slo ? r.shi : r.hi, double(rowFloat(r, dx)), r.prec,
-                                 PF_ValueDisplayFlag_NONE, 0, id);
+            PF_ADD_FLOAT_SLIDER(r.name, r.lo, r.hi, r.shi > r.slo ? r.slo : r.lo, r.shi > r.slo ? r.shi : r.hi, AEFX_DEFAULT_CURVE_TOLERANCE,
+                                double(rowFloat(r, dx)), r.prec, PF_ValueDisplayFlag_NONE, false, id);
             break;
         case drtae::kCheck:
-            PF_ADD_CHECKBOXX(r.name, (r.i ? dx.d.*(r.i) : dx.g.*(r.gi)) ? 1 : 0, 0, id);
+            PF_ADD_CHECKBOX(r.name, "", (r.i ? dx.d.*(r.i) : dx.g.*(r.gi)) ? 1 : 0, 0, id);
             break;
         case drtae::kPopupHidden:
-            def.ui_flags = PF_PUI_INVISIBLE;
             PF_ADD_POPUP(r.name, popupChoices(r), fieldToChoice(r, rowPopupField(r, dx)), popupString(r), id);
             break;
         case drtae::kPopup:
@@ -337,7 +410,13 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
             break;
         case drtae::kPresetDisplay:
             def.flags = PF_ParamFlag_SUPERVISE;
+#if DRT_ROLE_GRADE
+            /* the Grade's is the encoding of whatever sits above it, which in an OCIO project
+               is nothing: the comp's own working space (0.1.4; sRGB Display before) */
+            PF_ADD_POPUP(r.name, drt::kDisplayCount + 1, drt::drt_display_preset_index(DRT_DG_WORKING, DRT_EOTF_LINEAR) + 2 /* None - Linear / Working Gamut */, drtae::displayPopup(), id);
+#else
             PF_ADD_POPUP(r.name, drt::kDisplayCount + 1, drt::drt_display_preset_index(DRT_DG_REC709, DRT_EOTF_POWER_2_2) + 2 /* sRGB Display */, drtae::displayPopup(), id);
+#endif
             break;
         case drtae::kColorPick:
             def.flags = PF_ParamFlag_SUPERVISE;
@@ -397,11 +476,43 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
 }
 
 #if DRT_ROLE_GRADE
-/* An eyedropper row changed (Set Colour / Add to Range / Remove from Range). The pick is a
-   display code value as the viewer shows it, i.e. after the Output on top: decode it with
-   the DRT reference's display settings, invert the DRT back to the scene, measure it the way
-   the secondary does, then move the hue / purity / luminance windows. */
+/* An eyedropper row changed (Set Colour / Add to Range / Remove from Range). AE hands over
+   the comp's final value at the picked pixel, before the viewer's OCIO transform (AE 26.5,
+   checked 2026-10-25): in an OCIO project the working-space value itself; with a minColor
+   Output above the Grade, that Output's encoding. Undo the encoding named by the Grade's
+   Display Encoding (pickToWorking), measure it the way the secondary does, then move the
+   hue / purity / level windows. Until 0.1.4 the pick went through the OpenDRT inverse and
+   sRGB whatever the setting, which no Un-tone-mapped Output had applied. */
 inline float wrap180(float d) { d = std::fmod(d + 540.0f, 360.0f); if (d < 0.0f) d += 360.0f; return d - 180.0f; }
+
+/* The Un-tone-mapped Output (drt_transform's out_view 1) backwards, for the Output's Input
+   Gamut = the Grade's Working Gamut: decode the EOTF, undo the 100-nit scaling of PQ and
+   HLG, display gamut -> XYZ (the inverse of the forward's matrix, CATs included, built from
+   the forward itself), XYZ -> working. "None - Linear / Working Gamut" comes back unchanged.
+   Custom (choice 1) has nothing to name a display by and is taken as no encoding. */
+drt::float3 pickToWorking(const drt::DrtParams &d, int choice, drt::float3 c)
+{
+    drt::DrtParams q = d;
+    q.display_gamut = DRT_DG_WORKING; q.eotf = DRT_EOTF_LINEAR;
+    if (choice >= 2 && choice - 2 < drt::kDisplayCount) {
+        q.display_gamut = drt::kDisplays[choice - 2].display_gamut;
+        q.eotf = drt::kDisplays[choice - 2].eotf;
+    }
+    drt::float3 lin = drt::drt_decode(q, c);
+    const float s = q.eotf == DRT_EOTF_PQ ? 0.01f : (q.eotf == DRT_EOTF_HLG ? 0.1f : 1.0f);
+    lin = lin / s;
+    const drt::float3 c0 = drt::drt_xyz_to_display_gamut(q, drt::make_float3(1.0f, 0.0f, 0.0f), q.display_gamut);
+    const drt::float3 c1 = drt::drt_xyz_to_display_gamut(q, drt::make_float3(0.0f, 1.0f, 0.0f), q.display_gamut);
+    const drt::float3 c2 = drt::drt_xyz_to_display_gamut(q, drt::make_float3(0.0f, 0.0f, 1.0f), q.display_gamut);
+    const drt::drt_mat3 toDisplay = drt::drt_make_mat3(drt::make_float3(c0.x, c1.x, c2.x),
+                                                       drt::make_float3(c0.y, c1.y, c2.y),
+                                                       drt::make_float3(c0.z, c1.z, c2.z));
+    const drt::float3 xyz = drt::drt_vdot(drt::drt_mat3_inverse(toDisplay), lin);
+    const drt::drt_mat3 xyzToWorking = drt::drt_make_mat3(drt::make_float3(q.wk_m00, q.wk_m01, q.wk_m02),
+                                                          drt::make_float3(q.wk_m10, q.wk_m11, q.wk_m12),
+                                                          drt::make_float3(q.wk_m20, q.wk_m21, q.wk_m22));
+    return drt::drt_vdot(xyzToWorking, xyz);
+}
 
 PF_Err pickColour(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[], int row)
 {
@@ -415,9 +526,10 @@ PF_Err pickColour(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[
     if (cerr) return PF_Err_NONE;
 
     DrtRender x = liveParams(params);
-    drt::DrtParams q = x.d;
-    q.in_oetf = DRT_OETF_INVERSE_FIRST;   /* any inverse entry: decode with q's own display settings, invert, to working */
-    drt::float3 scene = drt::drt_input_transform(q, drt::make_float3(c.red, c.green, c.blue));
+    int displayChoice = 1;
+    for (int k = 0; k < DRT_ROW_COUNT; ++k)
+        if (DRT_ROWS[k].kind == drtae::kPresetDisplay) displayChoice = int(params[paramIndex(k)]->u.pd.value);
+    drt::float3 scene = pickToWorking(x.d, displayChoice, drt::make_float3(c.red, c.green, c.blue));
     drt::DrtGradeParams &g = x.g;
     /* the key is measured on the source, the pick is the graded pixel: take the global
        exposure and temperature back off (exact); the zones are not undone, so a pick is
@@ -612,6 +724,9 @@ static bool rowGreyed(const Row &r, int k, bool grey)
 
 PF_Err UpdateParamsUI(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[])
 {
+#if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT || DRT_ROLE_GRADE
+    hideStreams(in_data);
+#endif
 #if DRT_ROLE_OUTPUT || DRT_ROLE_INPUT || DRT_ROLE_KNEE || DRT_ROLE_AGX
     bool grey = false;
 #if DRT_ROLE_OUTPUT
@@ -633,6 +748,7 @@ PF_Err UpdateParamsUI(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *par
     for (int k = 0; k < DRT_ROW_COUNT; ++k) {
         const Row &r = DRT_ROWS[k];
         if (r.kind == drtae::kEndTopic || r.kind == drtae::kTopic || r.kind == drtae::kTopicOpen) continue;
+        if (rowHidden(k)) continue;   /* writing a hidden row's flags back could show it again */
         const bool want = rowGreyed(r, k, grey);
         PF_ParamDef def = *params[paramIndex(k)];
         const bool isGrey = (def.ui_flags & PF_PUI_DISABLED) != 0;

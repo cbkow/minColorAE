@@ -26,6 +26,11 @@
  *   - bump DRT_MINOR_VERSION (and the PiPLs' AE_Effect_Version) with every change.
  * params[] indices are positional (row + 1) and unaffected by ids.
  *
+ * Since 0.1.4 the effects show only the controls that describe the media (gamuts,
+ * transfers, encodings, peak); the OpenDRT look rows, Rendering, Surround and Clamp
+ * are created invisible (rowHidden() in drt_ae_effect.cpp). Hidden rows are still
+ * read, so every saved setup renders exactly as before.
+ *
  * Layout, mirroring the Nuke node:
  *   Output: Input Gamut, Input Transfer, Display Encoding, HDR sliders, Look,
  *           Tonescale, Creative White [+ limit], then the StickShift groups
@@ -211,6 +216,9 @@ static const char *const kEotfPopup         = "Linear|2.2 Power (sRGB Display)|2
     DRT_F(hs_y_rng, "Hueshift Y Range",      0.0f, 1.0f, 2), \
     DRT_E()
 
+static const Row kLookRowsCounted[] = { DRT_LOOK_ROWS };   /* only to count them */
+static const int kLookRowCount = int(sizeof(kLookRowsCounted) / sizeof(kLookRowsCounted[0]));
+
 /* ---------------------------------------------------------------- Output */
 static const Row kOutputRows[] = {
     DRT_P(in_gamut,  "Input Gamut",    nullptr, DRT_IN_GAMUT_COUNT),
@@ -229,6 +237,7 @@ static const Row kOutputRows[] = {
     DRT_E(),
 };
 static const int kOutputRowCount = int(sizeof(kOutputRows) / sizeof(kOutputRows[0]));
+static const int kOutputLookRowsFrom = 5;   /* first of DRT_LOOK_ROWS */
 
 /* ----------------------------------------------------------------- Input */
 static const Row kInputRows[] = {
@@ -244,6 +253,7 @@ static const Row kInputRows[] = {
 };
 static const int kInputRowCount = int(sizeof(kInputRows) / sizeof(kInputRows[0]));
 static const int kInputLookRowsFrom = 4;   /* first row that is inverse-only */
+static const int kInputLookTableFrom = 6;  /* first of DRT_LOOK_ROWS */
 
 /* ----------------------------------------------------------------- Grade */
 #define DRT_ZONE_ROWS(z, name) \
@@ -316,8 +326,8 @@ static const Row kGradeRows[] = {
 
     DRT_T("HSL Secondary"),
     DRT_GC(sec_enable,     "Enable Secondary"),
-    /* eyedroppers, Lumetri-style: a pick goes through the inverse DRT back to the scene and sets / widens /
-       narrows the three windows below (drt_ae_effect.mm, pickColour) */
+    /* eyedroppers, Lumetri-style: a pick is decoded by the reference's Display Encoding back to the
+       working space and sets / widens / narrows the three windows below (drt_ae_effect.cpp, pickColour) */
     DRT_PICK("Set Colour",        0, 1006),
     DRT_PICK("Add to Range",      1, 1007),
     DRT_PICK("Remove from Range", 2, 1008),
@@ -341,6 +351,8 @@ static const Row kGradeRows[] = {
     DRT_REFERENCE_ROWS,
 };
 static const int kGradeRowCount = int(sizeof(kGradeRows) / sizeof(kGradeRows[0]));
+static const Row kReferenceRowsCounted[] = { DRT_REFERENCE_ROWS };   /* only to count them */
+static const int kGradeReferenceRowsFrom = kGradeRowCount - int(sizeof(kReferenceRowsCounted) / sizeof(kReferenceRowsCounted[0]));
 
 /* ------------------------------------------------------------- macOS Fix */
 /* No settings. One invisible placeholder, because a row table cannot be empty;

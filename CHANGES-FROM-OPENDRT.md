@@ -2,7 +2,7 @@
 
 GPL-3.0 §5(a) notice. The rendering in minColorAE is derived from OpenDRT v1.1.0
 by Jed Smith (`upstream/OpenDRT_v1.1.0.dctl`, unmodified). These are the
-modifications and additions, made by cbkow between 2026-09-30 and 2026-10-04.
+modifications and additions, made by cbkow between 2026-09-30 and 2026-10-25.
 None of them is part of, or endorsed by, OpenDRT.
 
 ## Port (2026-09-30)
@@ -53,3 +53,15 @@ None of them is part of, or endorsed by, OpenDRT.
 - The minColor Knee effect (`core/mincolor_knee.h`): a highlight knee ported from
   the author's QCView, not from OpenDRT.
 - The After Effects hosting (`ae/`): upstream ships no After Effects version.
+
+## Controls hidden (minColorAE 0.1.4, 2026-10-25)
+
+- The effects show only the controls that describe the media: gamuts, transfer
+  functions, display encodings and peak luminance. The OpenDRT look and
+  tonescale presets and parameters, the Output's Rendering choice, Surround and
+  Clamp are no longer shown. The rendering is unchanged: hidden controls keep
+  their values and are still read, so the Input's inverse transfers, the
+  Grade's zones and saved projects work as before.
+- The Grade's eyedroppers no longer use the inverse rendering: a pick is
+  decoded by the Grade's Display Encoding (the Un-tone-mapped Output in
+  reverse), which now defaults to None - Linear / Working Gamut.
