@@ -513,7 +513,9 @@ int main()
     {
         bool good = true;
         drt::DrtSettings s; s.in_gamut = DRT_IN_AP1; s.in_oetf = DRT_OETF_LINEAR; s.look = 0; s.display = 0;
-        const drt::DrtParams p = drt::drt_resolve(s);      /* in_gamut AP1 = the working gamut */
+        drt::DrtParams p0 = drt::drt_resolve(s);      /* in_gamut AP1 = the working gamut */
+        p0.working_gamut = DRT_IN_AP1;                 /* as the host sets it: wk_m** is then in_m**' inverse */
+        const drt::DrtParams p = drt::drt_derive(p0);
         drt::DrtGradeParams g = drt::drt_grade_defaults();
         g = drt::drt_grade_derive(g, p);
 
@@ -540,14 +542,25 @@ int main()
         /* the Standard look's toe and offset put 0.18 at ~11.2 nits, not exactly Grey Luminance */
         if (std::fabs(greyNits - 10.0f) > 2.0f) { std::printf("   mid grey at %.2f nits, expected ~10\n", greyNits); good = false; }
 
-        /* zone exposure: +1 stop on Light only; grey 0.18 sits on the Shadow/Light boundary, inside Light's
-           band, so it moves a full stop; 0.001 (-7.5 st) and 8.0 (+5.5 st) are past Light's 2-stop feather */
+        /* zone exposure (weights normalised since 0.1.4): +1 stop on Light only. Grey 0.18 sits on the
+           Shadow/Light boundary, half in each, so it moves half a stop; Light's centre (+0.75 st) moves
+           2^0.76 with the 1-stop falloff; 0.001 (-7.5 st) and 8.0 (+5.5 st) are outside Light. And +1
+           on all six zones is exactly +1 everywhere. */
         drt::DrtGradeParams gz = g; gz.z3_exposure = 1.0f; gz = drt::drt_grade_derive(gz, p);
+        const float lc = 0.18f * std::exp2(0.75f);
         const float dark = drt::drt_grade(gz, p, drt::make_float3(0.001f, 0.001f, 0.001f)).y / 0.001f;
         const float mid  = drt::drt_grade(gz, p, drt::make_float3(0.18f, 0.18f, 0.18f)).y / 0.18f;
+        const float cen  = drt::drt_grade(gz, p, drt::make_float3(lc, lc, lc)).y / lc;
         const float hi   = drt::drt_grade(gz, p, drt::make_float3(8.0f, 8.0f, 8.0f)).y / 8.0f;
-        if (std::fabs(dark - 1.0f) > 1e-3f || std::fabs(hi - 1.0f) > 1e-3f || mid < 1.9f || mid > 2.1f) {
-            std::printf("   zone Light +1 stop: dark x%.3f mid x%.3f high x%.3f (want 1, ~2, 1)\n", dark, mid, hi); good = false;
+        drt::DrtGradeParams g6 = g; g6.z0_exposure = g6.z1_exposure = g6.z2_exposure = g6.z3_exposure = g6.z4_exposure = g6.z5_exposure = 1.0f;
+        g6 = drt::drt_grade_derive(g6, p);
+        double all = 0.0;
+        for (float v : {0.001f, 0.03f, 0.18f, 0.5f, 2.0f, 30.0f})
+            all = std::max(all, std::fabs(double(drt::drt_grade(g6, p, drt::make_float3(v, v, v)).y / v) - 2.0));
+        if (std::fabs(dark - 1.0f) > 1e-3f || std::fabs(hi - 1.0f) > 1e-3f || std::fabs(mid - 1.4142f) > 0.01f ||
+            cen < 1.6f || cen > 1.8f || all > 1e-4) {
+            std::printf("   zone Light +1 stop: dark x%.3f grey x%.3f centre x%.3f high x%.3f (want 1, 1.414, ~1.69, 1); all six +1 off by %.1e\n",
+                        dark, mid, cen, hi, all); good = false;
         }
 
         /* secondary: a red window keeps red (mask 1) and drops a cyan (mask 0) */
@@ -559,10 +572,11 @@ int main()
         if (mRed < 0.95f || mCyan > 0.05f || mGrey > 0.05f) { std::printf("   secondary mask red %.3f cyan %.3f grey %.3f (want 1, 0, 0)\n", mRed, mCyan, mGrey); good = false; }
 
         /* order of operations (2026-10-03): selection is measured on the source.
-           (a) Light +1 stop with global Exposure +2: 0.18 is still Light (x2 on top of x4 = x8),
-               0.001 is still outside it (x4 only) -- before, +2 pushed 0.18 into Highlight;
+           (a) Light +1 stop with global Exposure +2: grey keeps its half-Light weight (x1.414 on top of
+               x4 = x5.66), 0.001 is still outside it (x4 only) -- measured after Exposure, +2 would have
+               moved grey into Highlight;
            (b) Contrast 2 with Light +1: contrast pivots on grey so 0.18 stays 0.18, then the zone
-               doubles it (0.36) -- contrast after the zones would have given 0.72;
+               moves it half a stop (x1.414);
            (c) a red the secondary keys with a +-2 stop level window stays keyed under Exposure -5. */
         {
             drt::DrtGradeParams ga = g; ga.z3_exposure = 1.0f; ga.exposure = 2.0f; ga = drt::drt_grade_derive(ga, p);
@@ -572,9 +586,42 @@ int main()
             const float b1 = drt::drt_grade(gb, p, drt::make_float3(0.18f, 0.18f, 0.18f)).y / 0.18f;
             drt::DrtGradeParams gc = gs; gc.sec_lev_min = -2.0f; gc.sec_lev_max = 2.0f; gc.exposure = -5.0f; gc = drt::drt_grade_derive(gc, p);
             const float c1 = drt::drt_grade(gc, p, drt::make_float3(0.5f, 0.05f, 0.05f)).x;
-            if (std::fabs(a1 - 8.0f) > 0.1f || std::fabs(a2 - 4.0f) > 0.01f || std::fabs(b1 - 2.0f) > 0.05f || c1 < 0.95f) {
-                std::printf("   order: Light+1 & Exp+2 -> grey x%.2f (8) dark x%.2f (4); Contrast 2 & Light+1 -> grey x%.2f (2); key under Exp-5 mask %.2f (1)\n", a1, a2, b1, c1);
+            if (std::fabs(a1 - 5.657f) > 0.05f || std::fabs(a2 - 4.0f) > 0.01f || std::fabs(b1 - 1.4142f) > 0.02f || c1 < 0.95f) {
+                std::printf("   order: Light+1 & Exp+2 -> grey x%.2f (5.66) dark x%.2f (4); Contrast 2 & Light+1 -> grey x%.2f (1.41); key under Exp-5 mask %.2f (1)\n", a1, a2, b1, c1);
                 good = false;
+            }
+        }
+
+        /* tint (0.1.4): a full push on every zone keeps each pixel's luminance and moves its opponent
+           hue to the wheel's hue */
+        {
+            double lumaDrift = 0.0, hueErr = 0.0;
+            for (float hue : {0.0f, 60.0f, 120.0f, 180.0f, 240.0f, 300.0f}) {
+                drt::DrtGradeParams gt = g;
+                gt.z0_tint = gt.z1_tint = gt.z2_tint = gt.z3_tint = gt.z4_tint = gt.z5_tint = 1.0f;
+                gt.z0_hue = gt.z1_hue = gt.z2_hue = gt.z3_hue = gt.z4_hue = gt.z5_hue = hue;
+                gt = drt::drt_grade_derive(gt, p);
+                for (float v : {0.01f, 0.18f, 3.0f}) {
+                    const drt::float3 o = drt::drt_grade(gt, p, drt::make_float3(v, v, v));
+                    lumaDrift = std::max(lumaDrift, std::fabs(double(drt::drt_grade_luma(p, o)) / v - 1.0));
+                    double d = std::fabs(double(drt::drt_secondary_measure(p, o).hue_deg) - hue);
+                    hueErr = std::max(hueErr, std::min(d, 360.0 - d));
+                }
+            }
+            if (lumaDrift > 1e-4 || hueErr > 1.0) { std::printf("   tint: luminance drift %.1e, hue off by %.2f deg\n", lumaDrift, hueErr); good = false; }
+        }
+
+        /* temperature / tint (0.1.4, a Bradford shift): grey keeps its luminance; warm raises R over B,
+           magenta lowers G under R and B */
+        {
+            drt::DrtGradeParams gw = g; gw.temperature = 1.0f; gw = drt::drt_grade_derive(gw, p);
+            const drt::float3 w = drt::drt_grade(gw, p, drt::make_float3(0.18f, 0.18f, 0.18f));
+            drt::DrtGradeParams gm = g; gm.tint = 1.0f; gm = drt::drt_grade_derive(gm, p);
+            const drt::float3 m = drt::drt_grade(gm, p, drt::make_float3(0.18f, 0.18f, 0.18f));
+            const double lw = std::fabs(double(drt::drt_grade_luma(p, w)) / 0.18 - 1.0), lm = std::fabs(double(drt::drt_grade_luma(p, m)) / 0.18 - 1.0);
+            if (lw > 1e-3 || lm > 1e-3 || !(w.x > w.z * 1.2f) || !(m.y < m.x && m.y < m.z)) {
+                std::printf("   white balance: warm %.4f %.4f %.4f, magenta %.4f %.4f %.4f, luminance drift %.1e %.1e\n",
+                            w.x, w.y, w.z, m.x, m.y, m.z, lw, lm); good = false;
             }
         }
 

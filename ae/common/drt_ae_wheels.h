@@ -6,7 +6,7 @@
  * Pure UI: the wheels carry no data of their own. Each wheel draws and drags
  * three of the zone sliders that already exist in the parameter table:
  *   angle  = "<zone> Tint Hue"     (degrees, clockwise from the top; red at the top)
- *   radius = "<zone> Tint Amount"  (0 at the centre, 1 at the inner edge of the ring)
+ *   radius = "<zone> Tint Amount"  (0 at the centre, 1 at the outer edge of the ring)
  *   bar    = "<zone> Exposure"     (stops, 0 at the middle, +-4 at the ends)
  * A drag writes those sliders with PF_ChangeFlag_CHANGED_VALUE, the same path the
  * preset popups use, so keyframes, expressions, undo and the numeric readout below
@@ -21,9 +21,10 @@
  * Effect Controls panel, from 0.75x to 1.5x the natural 360 points, and the row's height follows
  * them: the draw event asks for the height that width wants (PF_UpdateParamUI, ui_height).
  * Drawing is Drawbot (cross-platform); events are DO_CLICK -> DRAG with the last
- * mouse point kept in continue_refcon, so motion is relative and geared down (kWheelGain,
- * kBarGain; Shift = finer still). A drag is measured against the wheel's own size, so a
- * wider panel is a finer control.
+ * mouse point kept in continue_refcon. A click off the puck (or off the bar's thumb)
+ * puts it there, Lumetri-style; a drag then moves it with the mouse, 1:1 (kWheelGain,
+ * kBarGain), Shift a quarter as fast. The puck ranges over the whole wheel, ring
+ * included (until 0.1.4 it was held inside the hole and geared down to 0.4).
  * Double-click resets the wheel's tint or the bar's exposure.
  */
 #pragma once
@@ -51,8 +52,8 @@ const int   kWidth    = kPerRow * kCellW;  /* ui_width of a control row */
 const float kMinScale = 0.75f;             /* cell scale limits vs the natural cell: a 57 pt ring ... */
 const float kMaxScale = 1.5f;              /* ... to a 114 pt one; past these the cells stop following the panel */
 const float kTextH    = 54.0f;             /* label + readout under the wheel; the text does not scale */
-const float kWheelGain = 0.4f;             /* puck travel per mouse travel (1 = the puck tracks the mouse) */
-const float kBarGain   = 0.5f;             /* same for the exposure bar's thumb */
+const float kWheelGain = 1.0f;             /* puck travel per mouse travel (1 = the puck tracks the mouse) */
+const float kBarGain   = 1.0f;             /* same for the exposure bar's thumb */
 /* natural geometry at kCellW; everything scales with the cell */
 const float kRingOut  = 38.0f;
 const float kRingIn   = 23.0f;
@@ -140,6 +141,9 @@ inline Cell cellGeom(const PF_Rect &frame, int i, int count)
     c.barTop = c.cy - c.barH * 0.5f;
     return c;
 }
+
+/* how far the puck's centre travels for Tint 1: to the ring's outer edge */
+inline float puckReach(const Cell &c) { return c.ringOut - c.puckR - 1.0f; }
 
 /* hue (deg, clockwise from top) + tint (0..1)  <->  puck vector, unit disc */
 inline void puckFromHueTint(float hue, float tint, float &px, float &py)
@@ -415,7 +419,7 @@ inline PF_Err draw(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params
             /* puck */
             float px, py;
             puckFromHueTint(hue, tint, px, py);
-            const float reach = c.ringIn - c.puckR - 1.0f;
+            const float reach = puckReach(c);
             p.disc(c.cx + px * reach, c.cy + py * reach, c.puckR, puckFill, &puckEdge, 1.0f);
             if (tint > 0.0f) p.disc(c.cx, c.cy, 1.5f, dim);   /* centre mark once the puck has left it */
 
@@ -459,7 +463,7 @@ inline void applyWheelDelta(PF_ParamDef *params[], int z, float dx, float dy, fl
     const float oldHue = readFloat(params, ih);
     float px, py;
     puckFromHueTint(oldHue, readFloat(params, it), px, py);
-    const float reach = c.ringIn - c.puckR - 1.0f;
+    const float reach = puckReach(c);
     px += dx / reach * kWheelGain * gain;
     py += dy / reach * kWheelGain * gain;
     float hue, tint;
@@ -475,6 +479,34 @@ inline void applyBarDelta(PF_ParamDef *params[], int z, float dy, float gain, co
     if (e > kExpRange) e = kExpRange;
     if (e < -kExpRange) e = -kExpRange;
     writeFloat(params, ie, e);
+}
+
+/* A click on the wheel away from the puck puts the puck under the mouse; on the bar away
+   from the thumb, the thumb. Returns whether it moved anything. */
+inline bool placeAt(PF_ParamDef *params[], int z, Hit h, const PF_Point &m, const Cell &c)
+{
+    if (h == kWheel) {
+        const int ih = paramOf(kZoneHue[z]), it = paramOf(kZoneTint[z]);
+        const float oldHue = readFloat(params, ih);
+        float px, py;
+        puckFromHueTint(oldHue, readFloat(params, it), px, py);
+        const float reach = puckReach(c);
+        const float mx = (float(m.h) - c.cx) / reach, my = (float(m.v) - c.cy) / reach;
+        if (std::hypot((mx - px) * reach, (my - py) * reach) <= c.puckR + 3.0f) return false;   /* on the puck: just drag */
+        float hue, tint;
+        hueTintFromPuck(mx, my, oldHue, hue, tint);
+        writeFloat(params, ih, hue);
+        writeFloat(params, it, tint);
+        return true;
+    }
+    const int ie = paramOf(kZoneExposure[z]);
+    const float ty = c.cy - (readFloat(params, ie) / kExpRange) * (c.barH * 0.5f);
+    if (std::fabs(float(m.v) - ty) <= 6.0f * c.s) return false;   /* on the thumb: just drag */
+    float e = (c.cy - float(m.v)) / (c.barH * 0.5f) * kExpRange;
+    if (e > kExpRange) e = kExpRange;
+    if (e < -kExpRange) e = -kExpRange;
+    writeFloat(params, ie, e);
+    return true;
 }
 
 inline PF_Err handleEvent(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[], PF_EventExtra *extra)
@@ -513,6 +545,7 @@ inline PF_Err handleEvent(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
             ck.send_drag = FALSE;
         } else {
             undoGroup(in_data, true);
+            placeAt(params, z, h, ck.screen_point, cellGeom(frame, z - firstZone, wheelsInRow(firstZone)));
             ck.send_drag = TRUE;
             ck.continue_refcon[0] = A_intptr_t((z << 4) | int(h));
             ck.continue_refcon[1] = A_intptr_t(ck.screen_point.h);

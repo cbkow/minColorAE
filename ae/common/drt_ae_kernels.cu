@@ -7,7 +7,7 @@
  * standalone GPU-vs-CPU check (tools/check_cuda.cpp) run the same code. The core
  * compiles here at file scope through opendrt_shim_cuda.h; the host passes its
  * blocks (namespace drt, same layout) as raw bytes, copied into the kernel's
- * parameters by value (DrtParams 496 + DrtGradeParams 272 + DrtAgxParams 336 bytes).
+ * parameters by value (DrtParams 496 + DrtGradeParams 296 + DrtAgxParams 336 bytes).
  *
  * AE's CUDA worlds are float4 BGRA (x = B, y = G, z = R, w = A), premultiplied,
  * pitch in pixels. Colour is transformed on straight RGB, alpha untouched.

@@ -194,7 +194,7 @@ DrtGradeParams drt_grade_defaults()
     g.saturation = 1.0f;
     g.z0_saturation = g.z1_saturation = g.z2_saturation = g.z3_saturation = g.z4_saturation = g.z5_saturation = 1.0f;
     g.zb0 = -3.0f; g.zb1 = -1.5f; g.zb2 = 0.0f; g.zb3 = 1.5f; g.zb4 = 3.0f;   /* stops over grey */
-    g.zfalloff = 2.0f;   /* feather past each boundary */
+    g.zfalloff = 1.0f;   /* feather past each boundary (2 until 0.1.4, before the weights were normalised) */
     g.sec_hue = 0.0f; g.sec_hue_width = 60.0f;
     g.sec_sat_min = 0.1f; g.sec_sat_max = 2.0f;
     g.sec_lum_min = 0.0f; g.sec_lum_max = 10000.0f;   /* retired rows */

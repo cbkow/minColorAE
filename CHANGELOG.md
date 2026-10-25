@@ -15,6 +15,18 @@
   Grade, set it to the Output's encoding.
 - Retired controls that were meant to be hidden (the Grade's Contrast Pivot
   (nits)) no longer show.
+- **minColor Grade, reworked** (grades made with 0.1.3 look different):
+  - Wheels: the puck ranges over the whole wheel, follows the mouse 1:1, and a
+    click puts it (or the exposure thumb) where you click.
+  - Tint is luminance-neutral (it used to darken blues and brighten greens by up
+    to 10 %) and twice as strong at full, and lands exactly on the wheel's hue,
+    the same hue scale as the HSL Secondary (a hue-direction error of up to a few
+    degrees near magenta is fixed).
+  - Zones share each pixel out in full (their weights sum to one): the same push
+    on all six zones equals that push globally, and a zone no longer drags its
+    neighbours at 68 %. Falloff defaults to 1 stop (was 2).
+  - Temperature and Tint are a white-balance shift (Bradford, along the Kelvin
+    line) that keeps grey's brightness, instead of plain channel gains.
 
 ## 0.1.3 (2026-10-05): first release
 

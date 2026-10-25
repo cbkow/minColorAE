@@ -535,7 +535,10 @@ PF_Err pickColour(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[
        exposure and temperature back off (exact); the zones are not undone, so a pick is
        exact with the zones at rest and close otherwise */
     const float ex = std::exp2(g.exposure);
-    scene = drt::make_float3(scene.x / (g.d_gain_r * ex), scene.y / (g.d_gain_g * ex), scene.z / (g.d_gain_b * ex));
+    const drt::drt_mat3 wb = drt::drt_make_mat3(drt::make_float3(g.d_wb_m00, g.d_wb_m01, g.d_wb_m02),
+                                                drt::make_float3(g.d_wb_m10, g.d_wb_m11, g.d_wb_m12),
+                                                drt::make_float3(g.d_wb_m20, g.d_wb_m21, g.d_wb_m22));
+    scene = drt::drt_vdot(drt::drt_mat3_inverse(wb), scene / ex);
     const drt::drt_sec_measure m = drt::drt_secondary_measure(x.d, scene);
     const float lev = m.log2_norm - g.d_grey_l;   /* stops over grey */
     dlog("pick mode %d rgb %.4f %.4f %.4f -> source %.4f %.4f %.4f -> hue %.1f purity %.3f level %.2f st",

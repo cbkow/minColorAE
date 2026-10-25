@@ -21,19 +21,19 @@
  * Grade's maths does not depend on the DRT reference's peak or look at all; the
  * reference serves only the hosts' eyedroppers. A zone has full
  * weight across its band and feathers smoothly to zero over `zfalloff` stops
- * beyond each boundary, so neighbours overlap and the weights do NOT sum to one
- * (Lumetri's bands behave the same way; a push on two adjacent zones adds up in
- * the feather between them). Boundaries default to -3, -1.5, 0, +1.5, +3 stops
- * with a 2-stop feather. The top zones split real highlight range instead of
- * the last few nits of an SDR shoulder. (The zones were display nits with
- * telescoping sum-to-one windows until 0.3; the contrast pivot and the
- * secondary's luminance window are still in nits.)
+ * beyond each boundary, and the six weights are then normalised to sum to one:
+ * the same push on every zone is exactly that push applied globally, and a zone
+ * owns its own band (76 % at its centre, 50 % at a boundary with the default
+ * 1-stop falloff). Boundaries default to -3, -1.5, 0, +1.5, +3 stops. The top
+ * zones split real highlight range instead of the last few nits of an SDR
+ * shoulder. (Until 0.1.4 the weights were not normalised and the falloff was 2
+ * stops: a mid-band pixel carried ~2.4 in total, its neighbours 68 % each.)
  *
  * Same dialect rules as opendrt_kernel.h, which must be included first (with
  * opendrt_params.h). DrtGradeParams is a flat 4-byte block like DrtParams, so the
  * host uploads it as a second uniform buffer. The DrtParams `p` is the DRT
- * reference: the host sets p.in_gamut to the working gamut (so in_m** is
- * working -> XYZ) and the look / display rows to match the Output on top.
+ * reference: the host sets p.in_gamut AND p.working_gamut to the working gamut
+ * (so in_m** is working -> XYZ and wk_m** its inverse; the tint uses both).
  */
 #ifndef OPENDRT_GRADE_H
 #define OPENDRT_GRADE_H
@@ -85,15 +85,17 @@ struct DrtGradeParams {
   float reserved_f1;
   float reserved_f2;
 
-  /* ---- derived by drt_grade_derive() : 12 ---- */
+  /* ---- derived by drt_grade_derive() : 18 ---- */
   float d_pivot_scene;   /* pivot as a scene norm value */
   float d_lb0; float d_lb1; float d_lb2; float d_lb3; float d_lb4;   /* boundaries, log2 of the norm */
-  float d_gain_r; float d_gain_g; float d_gain_b;                   /* temperature / tint gains */
+  float d_wb_m00; float d_wb_m01; float d_wb_m02;                    /* temperature / tint: a Bradford white */
+  float d_wb_m10; float d_wb_m11; float d_wb_m12;                    /* shift in the working gamut (rows), */
+  float d_wb_m20; float d_wb_m21; float d_wb_m22;                    /* grey keeps its luminance */
   float d_lum_min_l; float d_lum_max_l;                             /* secondary luminance bounds, log2 nits */
   float d_grey_l;        /* log2 of the norm of 0.18 grey: the zones' zero */
 };
 
-#define DRT_GRADE_SCALARS 68   /* 4 + 6 + 24 + 6 + 16 + 12; sizeof == 272 on every dialect */
+#define DRT_GRADE_SCALARS 74   /* 4 + 6 + 24 + 6 + 16 + 18; sizeof == 296 on every dialect */
 
 /* ------------------------------------------- neutral tonescale, forward */
 /* Scene norm -> display-linear fraction, exactly the achromatic path of
@@ -156,8 +158,8 @@ __DEVICE__ float drt_zone_edge(float x) {
 
 /* Zero-sum RGB direction for a hue on the DRT's hue scale (red = 0). Inverse of
    drt_opponent(): opp = (R - B, G - (R + B)/2), hue = atan2(opp.x, opp.y) + PI + 1.107. */
-/* sin on [-PI, PI] by Taylor to the 7th power: error < 2e-3 at the ends, far
-   better than a tint direction needs. sin and cos are not in the shim's intrinsic
+/* sin by Taylor to the 7th power: error < 2e-4 on [-PI/2, PI/2], where drt_hue_dir
+   keeps its arguments; far better than a tint direction needs. sin and cos are not in the shim's intrinsic
    list (the DCTL never needed them), so this keeps the dialect contract intact. */
 __DEVICE__ float drt_sin_pi(float x) {
   float x2 = x*x;
@@ -170,7 +172,11 @@ __DEVICE__ float3 drt_hue_dir(float hue_deg) {
   a = _fmod(a + DRT_PI, 2.0f*DRT_PI);
   if (a < 0.0f) a += 2.0f*DRT_PI;
   a -= DRT_PI;
-  float ox = drt_sin_pi(a);
+  /* the series is only good near zero (at +-PI it is off by 0.075, several degrees of hue,
+     until 0.1.4): fold sin into [-PI/2, PI/2] with sin(PI - a) = sin(a); the cos argument
+     PI/2 - |a| is already in range */
+  float as = a > 0.5f*DRT_PI ? DRT_PI - a : (a < -0.5f*DRT_PI ? -DRT_PI - a : a);
+  float ox = drt_sin_pi(as);
   float oy = drt_sin_pi(DRT_PI*0.5f - (a < 0.0f ? -a : a));   /* cos(a) = sin(PI/2 - |a|) */
   float g = (2.0f/3.0f)*oy;
   float r = (ox - (2.0f/3.0f)*oy)*0.5f;
@@ -179,6 +185,33 @@ __DEVICE__ float3 drt_hue_dir(float hue_deg) {
   float len = drt_hypotf3(d);
   return len > 1e-6f ? d/len : make_float3(0.0f, 0.0f, 0.0f);
 }
+
+/* The white a Temperature / Tint pair shifts D65 to, XYZ with Y = 1. Temperature
+   moves along the Planckian locus by mireds (warm positive: +1 = +100 mired, D65's
+   6504 K to ~3940 K; -1 to the 15000 K end of the fit), Tint across it by Delta-uv
+   (magenta positive: +1 = 0.02 below the locus), both as offsets from D65 itself so
+   0, 0 is exactly D65. Locus: Krystek's rational fit in CIE 1960 uv (1000-15000 K). */
+__DEVICE__ float2 drt_planck_uv(float T) {
+  float u = (0.860117757f + 1.54118254e-4f*T + 1.28641212e-7f*T*T)/(1.0f + 8.42420235e-4f*T + 7.08145163e-7f*T*T);
+  float v = (0.317398726f + 4.22806245e-5f*T + 4.20481691e-8f*T*T)/(1.0f - 2.89741816e-5f*T + 1.61456053e-7f*T*T);
+  return make_float2(u, v);
+}
+__DEVICE__ float3 drt_wb_white(float temperature, float tint) {
+  float m = _fmaxf(1.0e6f/6504.0f + 100.0f*temperature, 1.0e6f/15000.0f);
+  float2 p0 = drt_planck_uv(6504.0f), p1 = drt_planck_uv(1.0e6f/m);
+  float2 pa = drt_planck_uv(6404.0f), pb = drt_planck_uv(6604.0f);   /* the locus' direction at D65 */
+  float du = pb.x - pa.x, dv = pb.y - pa.y, dl = _sqrtf(du*du + dv*dv);
+  /* D65 in uv, moved along the locus, then along its normal (rotated toward the magenta side) */
+  float u = 0.197839f + (p1.x - p0.x) - 0.02f*tint*(dv/dl);
+  float v = 0.312262f + (p1.y - p0.y) + 0.02f*tint*(du/dl);
+  float d = 2.0f*u - 8.0f*v + 4.0f;
+  float x = 3.0f*u/d, y = 2.0f*v/d;
+  return make_float3(x/y, 1.0f, (1.0f - x - y)/y);
+}
+
+/* Tint strength: a zone at Tint 1 is pushed by this many times its own luminance
+   along the hue (opponent purity), luminance held. */
+#define DRT_GRADE_TINT_K 0.5f   /* provisional, to calibrate against Lumetri; at 1 a full yellow push takes grey's blue below zero */
 
 /* ----------------------------------------------------------------- derive */
 __DEVICE__ DrtGradeParams drt_grade_derive(DrtGradeParams g, DRT_PARAMS_ARG p) {
@@ -189,11 +222,24 @@ __DEVICE__ DrtGradeParams drt_grade_derive(DrtGradeParams g, DRT_PARAMS_ARG p) {
   g.d_lb2 = g.d_grey_l + g.zb2;
   g.d_lb3 = g.d_grey_l + g.zb3;
   g.d_lb4 = g.d_grey_l + g.zb4;
-  /* temperature / tint as channel gains (von Kries-ish, Lumetri-grade approximation):
-     warm = more red, less blue; magenta = less green */
-  g.d_gain_r = _powf(2.0f, 0.5f*g.temperature);
-  g.d_gain_b = _powf(2.0f, -0.5f*g.temperature);
-  g.d_gain_g = _powf(2.0f, -0.5f*g.tint);
+  /* temperature / tint: a white-balance shift, D65 to the white below, Bradford, as
+     one working-gamut matrix (working -> XYZ -> cone space -> scaled -> back) */
+  drt_mat3 wk_to_xyz = drt_make_mat3(
+    make_float3(p.in_m00, p.in_m01, p.in_m02),
+    make_float3(p.in_m10, p.in_m11, p.in_m12),
+    make_float3(p.in_m20, p.in_m21, p.in_m22));
+  drt_mat3 xyz_to_wk = drt_mat3_inverse(wk_to_xyz);
+  float3 wd = drt_wb_white(0.0f, 0.0f), wt = drt_wb_white(g.temperature, g.tint);
+  drt_mat3 brad = drt_make_mat3(make_float3(0.8951f, 0.2664f, -0.1614f), make_float3(-0.7502f, 1.7135f, 0.0367f), make_float3(0.0389f, -0.0685f, 1.0296f));
+  float3 ld = drt_vdot(brad, wd), lt = drt_vdot(brad, wt);
+  float3 gain = make_float3(lt.x/ld.x, lt.y/ld.y, lt.z/ld.z);
+  drt_mat3 ibrad = drt_mat3_inverse(brad);
+  float3 c0 = drt_vdot(xyz_to_wk, drt_vdot(ibrad, gain*drt_vdot(brad, drt_vdot(wk_to_xyz, make_float3(1.0f, 0.0f, 0.0f)))));
+  float3 c1 = drt_vdot(xyz_to_wk, drt_vdot(ibrad, gain*drt_vdot(brad, drt_vdot(wk_to_xyz, make_float3(0.0f, 1.0f, 0.0f)))));
+  float3 c2 = drt_vdot(xyz_to_wk, drt_vdot(ibrad, gain*drt_vdot(brad, drt_vdot(wk_to_xyz, make_float3(0.0f, 0.0f, 1.0f)))));
+  g.d_wb_m00 = c0.x; g.d_wb_m01 = c1.x; g.d_wb_m02 = c2.x;
+  g.d_wb_m10 = c0.y; g.d_wb_m11 = c1.y; g.d_wb_m12 = c2.y;
+  g.d_wb_m20 = c0.z; g.d_wb_m21 = c1.z; g.d_wb_m22 = c2.z;
   g.d_lum_min_l = g.d_grey_l + g.sec_lev_min;   /* log2 of the norm */
   g.d_lum_max_l = g.d_grey_l + g.sec_lev_max;
   return g;
@@ -211,7 +257,18 @@ __DEVICE__ float3 drt_grade_apply(DRT_PARAMS_ARG p, float3 rgb, float w, float e
   float y = drt_grade_luma(p, rgb);
   float s = 1.0f + w*(saturation - 1.0f);
   rgb = make_float3(y + (rgb.x - y)*s, y + (rgb.y - y)*s, y + (rgb.z - y)*s);
-  if (tint != 0.0f) rgb += drt_hue_dir(hue_deg)*(_fmaxf(y, 0.0f)*0.25f*w*tint);
+  if (tint != 0.0f) {
+    /* the hue's direction on the secondary's scale (P3-D65 opponent, as drt_secondary_measure
+       reads it) taken into the working gamut, then its luminance taken out: adding grey leaves
+       the opponent hue and purity alone, so the push changes colour and not brightness */
+    float3 d = drt_vdot(drt_make_mat3(
+      make_float3(p.wk_m00, p.wk_m01, p.wk_m02),
+      make_float3(p.wk_m10, p.wk_m11, p.wk_m12),
+      make_float3(p.wk_m20, p.wk_m21, p.wk_m22)), drt_vdot(drt_matrix_p3d65_to_xyz, drt_hue_dir(hue_deg)));
+    float dy = drt_grade_luma(p, d);
+    d = make_float3(d.x - dy, d.y - dy, d.z - dy);
+    rgb += d*(_fmaxf(y, 0.0f)*DRT_GRADE_TINT_K*w*tint);
+  }
   return rgb;
 }
 
@@ -254,6 +311,8 @@ __DEVICE__ float3 drt_grade(DrtGradeParams g, DRT_PARAMS_ARG p, float3 rgb) {
   float w3 = drt_zone_edge((g.d_lb2 - L)/f)*drt_zone_edge((L - g.d_lb3)/f);
   float w4 = drt_zone_edge((g.d_lb3 - L)/f)*drt_zone_edge((L - g.d_lb4)/f);
   float w5 = drt_zone_edge((g.d_lb4 - L)/f);
+  float ws = 1.0f/_fmaxf(w0 + w1 + w2 + w3 + w4 + w5, 1e-6f);   /* sum to one (never below 1 before: Black and Specular are open-ended) */
+  w0 *= ws; w1 *= ws; w2 *= ws; w3 *= ws; w4 *= ws; w5 *= ws;
   float mask = 0.0f;
   if (g.sec_enable != 0) {
     /* HSL secondary: qualifier in the DRT's own hue / purity terms, level in stops over grey */
@@ -281,7 +340,9 @@ __DEVICE__ float3 drt_grade(DrtGradeParams g, DRT_PARAMS_ARG p, float3 rgb) {
   }
 
   /* 2. global: temperature / tint, exposure */
-  rgb = make_float3(rgb.x*g.d_gain_r, rgb.y*g.d_gain_g, rgb.z*g.d_gain_b);
+  rgb = drt_vdot(drt_make_mat3(make_float3(g.d_wb_m00, g.d_wb_m01, g.d_wb_m02),
+                               make_float3(g.d_wb_m10, g.d_wb_m11, g.d_wb_m12),
+                               make_float3(g.d_wb_m20, g.d_wb_m21, g.d_wb_m22)), rgb);
   rgb = rgb*_powf(2.0f, g.exposure);
 
   /* 3. contrast about the pivot, on the norm so ratios (hue) hold; before the zones so a
