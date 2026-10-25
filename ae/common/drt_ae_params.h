@@ -63,6 +63,7 @@ enum Kind {
     kTopicOpen,      /* group start that opens expanded */
     kWheels,         /* Grade: a custom-UI row of colour wheels, three to a line; choices = first wheel (ae/common/drt_ae_wheels.h) */
     kColorPick,      /* Grade: a colour row whose eyedropper drives the HSL secondary; choices = 0 set, 1 add, 2 remove */
+    kKeyBars,        /* Grade: a custom-UI row, the secondary's H / S / L key bars (ae/common/drt_ae_keybars.h) */
 };
 
 struct Row {
@@ -101,9 +102,11 @@ struct Row {
 #define DRT_EX(id)                        { kEndTopic, "", nullptr, nullptr, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, id }
 #define DRT_WHEELS(label, firstZone, id)  { kWheels, label, nullptr, nullptr, nullptr, nullptr, 0, 0, 0, nullptr, firstZone, nullptr, id }
 #define DRT_PICK(label, mode, id)         { kColorPick, label, nullptr, nullptr, nullptr, nullptr, 0, 0, 0, nullptr, mode, nullptr, id }
+#define DRT_KEYBARS(label, id)            { kKeyBars, label, nullptr, nullptr, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, id }
 /* grade-block bindings */
 #define DRT_GF(field, label, lo, hi, prec) { kFloat, label, nullptr, nullptr, &drt::DrtGradeParams::field, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0 }
 #define DRT_GC(field, label)               { kCheck, label, nullptr, nullptr, nullptr, &drt::DrtGradeParams::field, 0, 1, 0, nullptr, 0, nullptr, 0 }
+#define DRT_GCX(field, label, id)          { kCheck, label, nullptr, nullptr, nullptr, &drt::DrtGradeParams::field, 0, 1, 0, nullptr, 0, nullptr, id }
 #define DRT_GFX(field, label, lo, hi, prec, id) { kFloat, label, nullptr, nullptr, &drt::DrtGradeParams::field, nullptr, lo, hi, prec, nullptr, 0, nullptr, id }
 #define DRT_GH(field, label, lo, hi, prec)  { kFloatHidden, label, nullptr, nullptr, &drt::DrtGradeParams::field, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0 }
 /* AgX-block bindings */
@@ -331,6 +334,10 @@ static const Row kGradeRows[] = {
     DRT_PICK("Set Colour",        0, 1006),
     DRT_PICK("Add to Range",      1, 1007),
     DRT_PICK("Remove from Range", 2, 1008),
+    /* 0.1.4: the H / S / L bars draw and drag the windows below, Lumetri-style; the numbers sit in a
+       twirl under them, as the zone sliders sit under the wheels */
+    DRT_KEYBARS("Key", 1012),
+    DRT_TX("Key Values", 1019),
     DRT_GF(sec_hue,        "Hue Centre",        0.0f, 360.0f, 0),
     DRT_GF(sec_hue_width,  "Hue Width",         0.0f, 360.0f, 0),
     DRT_GF(sec_sat_min,    "Saturation Min",    0.0f,   2.0f, 2),
@@ -339,7 +346,14 @@ static const Row kGradeRows[] = {
     DRT_GH(sec_lum_max,    "Luminance Max (nits)", 0.0f, 10000.0f, 1),
     DRT_GFX(sec_lev_min,   "Level Min (stops)",   -10.0f, 10.0f, 2, 1010),
     DRT_GFX(sec_lev_max,   "Level Max (stops)",   -10.0f, 10.0f, 2, 1011),
-    DRT_GF(sec_softness,   "Softness",          0.0f,   1.0f, 2),
+    DRT_GH(sec_softness,   "Softness",          0.0f,   1.0f, 2),   /* retired 0.1.4: one softness per window below */
+    DRT_GFX(sec_hue_soft,  "Hue Softness",        0.0f, 180.0f, 1, 1016),
+    DRT_GFX(sec_sat_soft,  "Saturation Softness", 0.0f,   1.0f, 3, 1017),
+    DRT_GFX(sec_lev_soft,  "Level Softness (stops)", 0.0f, 6.0f, 2, 1018),
+    DRT_GCX(sec_hue_on,    "Use Hue",        1013),   /* drawn as the bars' check boxes (rowHidden) */
+    DRT_GCX(sec_sat_on,    "Use Saturation", 1014),
+    DRT_GCX(sec_lev_on,    "Use Level",      1015),
+    DRT_EX(1020),
     DRT_GC(sec_show_mask,  "Show Mask"),
     DRT_WHEELS("Secondary Correction", 6, 1005),   /* one wheel: Secondary Exposure / Tint Hue / Tint Amount */
     DRT_GF(sec_exposure,   "Secondary Exposure",   -4.0f, 4.0f, 2),

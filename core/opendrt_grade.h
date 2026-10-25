@@ -74,7 +74,7 @@ struct DrtGradeParams {
   float sec_sat_max;
   float sec_lum_min;     /* RETIRED (hidden rows keep their ids): the window in nits */
   float sec_lum_max;
-  float sec_softness;    /* 0..1 */
+  float sec_softness;    /* RETIRED 0.1.4 (hidden row keeps its id): one softness for all three windows */
   float sec_exposure;
   float sec_saturation;
   float sec_hue_shift;   /* tint hue, degrees */
@@ -84,6 +84,14 @@ struct DrtGradeParams {
   float sec_lev_max;
   float reserved_f1;
   float reserved_f2;
+
+  /* ---- HSL secondary key rows (0.1.4) : 6 ---- */
+  int   sec_hue_on;      /* each window on (1) or ignored (0) */
+  int   sec_sat_on;
+  int   sec_lev_on;
+  float sec_hue_soft;    /* degrees past each end of the hue window to zero */
+  float sec_sat_soft;    /* purity past each end of the purity window */
+  float sec_lev_soft;    /* stops past each end of the level window */
 
   /* ---- derived by drt_grade_derive() : 18 ---- */
   float d_pivot_scene;   /* pivot as a scene norm value */
@@ -95,7 +103,7 @@ struct DrtGradeParams {
   float d_grey_l;        /* log2 of the norm of 0.18 grey: the zones' zero */
 };
 
-#define DRT_GRADE_SCALARS 74   /* 4 + 6 + 24 + 6 + 16 + 18; sizeof == 296 on every dialect */
+#define DRT_GRADE_SCALARS 80   /* 4 + 6 + 24 + 6 + 16 + 6 + 18; sizeof == 320 on every dialect */
 
 /* ------------------------------------------- neutral tonescale, forward */
 /* Scene norm -> display-linear fraction, exactly the achromatic path of
@@ -320,21 +328,26 @@ __DEVICE__ float3 drt_grade(DrtGradeParams g, DRT_PARAMS_ARG p, float3 rgb) {
     float purity = sm.purity;
     float hue = sm.hue_deg*(DRT_PI/180.0f);
     float Ls = sm.log2_norm;
-    float soft = _fmaxf(g.sec_softness, 0.01f);
-    /* hue window: signed distance to the centre, soft edge = soft * 30 degrees */
-    float hc = g.sec_hue*(DRT_PI/180.0f);
-    float dh = _fabs(drt_hue_offset(hue, hc));
-    float hw = 0.5f*g.sec_hue_width*(DRT_PI/180.0f);
-    float he = soft*(30.0f*DRT_PI/180.0f);
-    float mh = 1.0f - drt_zone_step((dh - hw)/he);
-    /* purity window, soft edge = soft * 0.2 */
-    float pe = soft*0.2f;
-    /* Saturation Min 0 means no lower bound, so greys sit fully inside */
-    float mp_lo = g.sec_sat_min <= 0.0f ? 1.0f : drt_zone_step((purity - g.sec_sat_min)/pe);
-    float mp = mp_lo*(1.0f - drt_zone_step((purity - g.sec_sat_max)/pe));
-    /* level window in stops, soft edge = soft * 1 stop */
-    float le = soft*1.0f;
-    float ml = drt_zone_step((Ls - g.d_lum_min_l)/le)*(1.0f - drt_zone_step((Ls - g.d_lum_max_l)/le));
+    /* each window is full across its range and feathers to zero over its own softness past
+       each end (0.1.4: the key bars draw it that way; before, one Softness straddled the ends) */
+    float mh = 1.0f, mp = 1.0f, ml = 1.0f;
+    if (g.sec_hue_on != 0) {
+      float hc = g.sec_hue*(DRT_PI/180.0f);
+      float dh = _fabs(drt_hue_offset(hue, hc));
+      float hw = 0.5f*g.sec_hue_width*(DRT_PI/180.0f);
+      float he = _fmaxf(g.sec_hue_soft, 0.01f)*(DRT_PI/180.0f);
+      mh = drt_zone_edge((dh - hw)/he);
+    }
+    if (g.sec_sat_on != 0) {
+      float pe = _fmaxf(g.sec_sat_soft, 1e-4f);
+      /* Saturation Min 0 means no lower bound, so greys sit fully inside */
+      float mp_lo = g.sec_sat_min <= 0.0f ? 1.0f : drt_zone_edge((g.sec_sat_min - purity)/pe);
+      mp = mp_lo*drt_zone_edge((purity - g.sec_sat_max)/pe);
+    }
+    if (g.sec_lev_on != 0) {
+      float le = _fmaxf(g.sec_lev_soft, 1e-3f);
+      ml = drt_zone_edge((g.d_lum_min_l - Ls)/le)*drt_zone_edge((Ls - g.d_lum_max_l)/le);
+    }
     mask = mh*mp*ml;
     if (g.sec_show_mask != 0) return make_float3(mask, mask, mask);
   }

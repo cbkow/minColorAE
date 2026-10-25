@@ -27,9 +27,14 @@ layer, or on an adjustment layer below the Output.
   all six is the same as that push globally, and a zone owns its own band
   (about three quarters at its centre, half at a boundary). Widen the Falloff
   for softer hand-overs.
-- **HSL Secondary**: a hue / purity / level qualifier with Softness and Show Mask,
-  its own wheel and correctors, and three eyedroppers: **Set Colour**, **Add to
-  Range**, **Remove from Range**.
+- **HSL Secondary**: a hue / saturation / level key with Show Mask, its own
+  wheel and correctors, and three eyedroppers: **Set Colour**, **Add to Range**,
+  **Remove from Range**. The **key bars** under the eyedroppers show and set the
+  key, Lumetri-style: one bar each for **H**, **S** and **L**, dimmed where the key
+  passes nothing. Drag the handles above a bar to set its range (on the hue bar,
+  drag inside the range to slide it), the ones below to set its softness; a click
+  moves the nearest handle there, Shift drags finer, double-click resets the row,
+  and the check box turns the row off. The numbers are in **Key Values**.
 - **DRT Reference > Display Encoding**: how a pick is decoded. After Effects hands
   an eyedropper the comp's final value, before the viewer's display: in an OCIO
   project that is the working space itself, so leave the default *None - Linear /

@@ -27,6 +27,10 @@
     neighbours at 68 %. Falloff defaults to 1 stop (was 2).
   - Temperature and Tint are a white-balance shift (Bradford, along the Kelvin
     line) that keeps grey's brightness, instead of plain channel gains.
+  - HSL Secondary key bars: H, S and L gradient bars with range and softness
+    handles and an on/off per row, drawing the key they select; one softness per
+    row replaces the single Softness, and the softness now feathers outward from
+    the range instead of straddling its ends.
 
 ## 0.1.3 (2026-10-05): first release
 

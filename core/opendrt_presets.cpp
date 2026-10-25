@@ -200,7 +200,9 @@ DrtGradeParams drt_grade_defaults()
     g.sec_lum_min = 0.0f; g.sec_lum_max = 10000.0f;   /* retired rows */
     g.pivot_stops = 0.0f;                               /* mid grey */
     g.sec_lev_min = -10.0f; g.sec_lev_max = 10.0f;      /* wide open */
-    g.sec_softness = 0.5f;
+    g.sec_softness = 0.5f;                              /* retired row */
+    g.sec_hue_on = g.sec_sat_on = g.sec_lev_on = 1;
+    g.sec_hue_soft = 15.0f; g.sec_sat_soft = 0.1f; g.sec_lev_soft = 0.5f;   /* the old Softness 0.5's half-widths */
     g.sec_saturation = 1.0f;
     return g;
 }

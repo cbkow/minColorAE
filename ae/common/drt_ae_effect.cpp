@@ -18,6 +18,7 @@
 #include "drt_ae_common.h"
 #if DRT_ROLE_GRADE
 #include "drt_ae_wheels.h"
+#include "drt_ae_keybars.h"
 #endif
 
 #include "AEConfig.h"
@@ -197,6 +198,9 @@ bool rowHidden(int row)
     return row >= drtae::kInputLookTableFrom && row < drtae::kInputLookTableFrom + drtae::kLookRowCount &&
            !(r.kind == drtae::kFloat && r.f == &drt::DrtParams::tn_Lp);
 #elif DRT_ROLE_GRADE
+    /* the secondary's per-window switches are drawn by the key bars */
+    if (r.kind == drtae::kCheck && (r.gi == &drt::DrtGradeParams::sec_hue_on || r.gi == &drt::DrtGradeParams::sec_sat_on ||
+                                    r.gi == &drt::DrtGradeParams::sec_lev_on)) return true;
     /* the reference group keeps its twirl and Display Encoding (the eyedroppers' decode);
        Peak goes too: the zones' norm is taken before the tonescale, so no peak reaches it */
     return row > drtae::kGradeReferenceRowsFrom && row < DRT_ROW_COUNT - 1 && r.kind != drtae::kPresetDisplay;
@@ -430,6 +434,14 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
             def.ui_flags = PF_PUI_CONTROL | PF_PUI_DONT_ERASE_CONTROL;
             def.ui_width = drtwheels::kWidth;
             def.ui_height = A_short(drtwheels::heightFor(1.0f, drtwheels::wheelsInRow(r.choices)));
+            PF_ADD_NULL(r.name, id);
+#endif
+            break;
+        case drtae::kKeyBars:
+#if DRT_ROLE_GRADE
+            def.ui_flags = PF_PUI_CONTROL | PF_PUI_DONT_ERASE_CONTROL;
+            def.ui_width = drtkeys::kWidth;
+            def.ui_height = drtkeys::kHeight;
             PF_ADD_NULL(r.name, id);
 #endif
             break;
@@ -765,6 +777,18 @@ PF_Err UpdateParamsUI(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *par
     return PF_Err_NONE;
 }
 
+#if DRT_ROLE_GRADE
+/* Effect Controls events: the key bars row has its own handler, the wheel rows theirs. */
+PF_Err gradeEvent(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[], PF_EventExtra *extra)
+{
+    if (!extra->contextH || (**extra->contextH).w_type != PF_Window_EFFECT) return PF_Err_NONE;
+    const int row = int(extra->effect_win.index) - 1;
+    if (row >= 0 && row < DRT_ROW_COUNT && DRT_ROWS[row].kind == drtae::kKeyBars)
+        return drtkeys::handleEvent(in_data, out_data, params, extra);
+    return drtwheels::handleEvent(in_data, out_data, params, extra);
+}
+#endif
+
 void DisposePreRenderData(void *p) { std::free(p); }
 
 PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
@@ -941,7 +965,7 @@ PF_Err EffectMain(PF_Cmd cmd, PF_InData *in_data, PF_OutData *out_data, PF_Param
         case PF_Cmd_USER_CHANGED_PARAM: err = UserChangedParam(in_data, out_data, params, static_cast<const PF_UserChangedParamExtra *>(extra)); break;
         case PF_Cmd_UPDATE_PARAMS_UI:   err = UpdateParamsUI(in_data, out_data, params); break;
 #if DRT_ROLE_GRADE
-        case PF_Cmd_EVENT:              err = drtwheels::handleEvent(in_data, out_data, params, static_cast<PF_EventExtra *>(extra)); break;
+        case PF_Cmd_EVENT:              err = gradeEvent(in_data, out_data, params, static_cast<PF_EventExtra *>(extra)); break;
 #endif
         case PF_Cmd_GPU_DEVICE_SETUP:   err = drtae::gpuDeviceSetup(in_data, out_data, static_cast<PF_GPUDeviceSetupExtra *>(extra)); break;
         case PF_Cmd_GPU_DEVICE_SETDOWN: err = drtae::gpuDeviceSetdown(in_data, out_data, static_cast<PF_GPUDeviceSetdownExtra *>(extra)); break;
