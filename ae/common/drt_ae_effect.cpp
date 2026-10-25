@@ -222,10 +222,10 @@ void hideStreams(PF_InData *in_data)
 {
     if (!g_aegpId) return;
     SPBasicSuite *sp = in_data->pica_basicP;
-    AEGP_PFInterfaceSuite1 *pfi = nullptr; AEGP_StreamSuite7 *ss = nullptr;
+    AEGP_PFInterfaceSuite1 *pfi = nullptr; AEGP_StreamSuite6 *ss = nullptr;
     AEGP_DynamicStreamSuite4 *ds = nullptr; AEGP_EffectSuite5 *es = nullptr;
     const bool ok = sp->AcquireSuite(kAEGPPFInterfaceSuite, kAEGPPFInterfaceSuiteVersion1, (const void **)&pfi) == kSPNoError &&
-                    sp->AcquireSuite(kAEGPStreamSuite, kAEGPStreamSuiteVersion7, (const void **)&ss) == kSPNoError &&
+                    sp->AcquireSuite(kAEGPStreamSuite, kAEGPStreamSuiteVersion6, (const void **)&ss) == kSPNoError &&
                     sp->AcquireSuite(kAEGPDynamicStreamSuite, kAEGPDynamicStreamSuiteVersion4, (const void **)&ds) == kSPNoError &&
                     sp->AcquireSuite(kAEGPEffectSuite, kAEGPEffectSuiteVersion5, (const void **)&es) == kSPNoError;
     AEGP_EffectRefH meH = nullptr;
@@ -242,7 +242,7 @@ void hideStreams(PF_InData *in_data)
         es->AEGP_DisposeEffect(meH);
     }
     if (pfi) sp->ReleaseSuite(kAEGPPFInterfaceSuite, kAEGPPFInterfaceSuiteVersion1);
-    if (ss)  sp->ReleaseSuite(kAEGPStreamSuite, kAEGPStreamSuiteVersion7);
+    if (ss)  sp->ReleaseSuite(kAEGPStreamSuite, kAEGPStreamSuiteVersion6);
     if (ds)  sp->ReleaseSuite(kAEGPDynamicStreamSuite, kAEGPDynamicStreamSuiteVersion4);
     if (es)  sp->ReleaseSuite(kAEGPEffectSuite, kAEGPEffectSuiteVersion5);
 }
