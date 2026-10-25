@@ -21,9 +21,7 @@ ships none of Blender's files.
 Put it on an adjustment layer over the comp's content, under minColor Output and
 any macOS Fix layer. In an OCIO project the viewer and the Output Module encode
 its result as they would any linear light; in an Unmanaged or Adobe-engine
-project, minColor Output with Rendering *Un-tone-mapped* encodes it. AgX is a
-complete picture formation: don't stack it with the Output's OpenDRT rendering.
-Work in 32 bpc.
+project, minColor Output encodes it. Work in 32 bpc.
 
 - **Working Gamut**: the comp's working space. AgX works in Rec.2020 inside, so
   this tells it what the pixels are; set wrong, saturated colours render wrong.

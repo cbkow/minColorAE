@@ -197,9 +197,9 @@ bool rowHidden(int row)
     return row >= drtae::kInputLookTableFrom && row < drtae::kInputLookTableFrom + drtae::kLookRowCount &&
            !(r.kind == drtae::kFloat && r.f == &drt::DrtParams::tn_Lp);
 #elif DRT_ROLE_GRADE
-    /* the reference group keeps its twirl, Display Encoding and Peak */
-    return row > drtae::kGradeReferenceRowsFrom && row < DRT_ROW_COUNT - 1 && r.kind != drtae::kPresetDisplay &&
-           !(r.kind == drtae::kFloat && r.f == &drt::DrtParams::tn_Lp);
+    /* the reference group keeps its twirl and Display Encoding (the eyedroppers' decode);
+       Peak goes too: the zones' norm is taken before the tonescale, so no peak reaches it */
+    return row > drtae::kGradeReferenceRowsFrom && row < DRT_ROW_COUNT - 1 && r.kind != drtae::kPresetDisplay;
 #else
     (void)row;
     return false;

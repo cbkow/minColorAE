@@ -14,8 +14,8 @@ macOS Fix** on a guide layer in an Adobe-engine project.
 
 **Highlights clip.** Un-tone-mapped is a straight conversion: anything above
 display white clips on screen and in display-referred renders. Add
-[minColor Knee](effects/knee.md) or [minColor AgX](effects/agx.md), or use the
-Output's OpenDRT rendering. Check the project is 32 bpc; 8 and 16 bpc clip at 1.0.
+[minColor Knee](effects/knee.md) or [minColor AgX](effects/agx.md). Check the
+project is 32 bpc; 8 and 16 bpc clip at 1.0.
 
 **The project lost its OCIO config** (opened from another location, or the
 `minColor` folder did not come along). After Effects silently falls back to its

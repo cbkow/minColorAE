@@ -64,16 +64,13 @@ filmic picture, add one of these on an adjustment layer at the top of the comp:
 
 - [minColor Knee](effects/knee.md): touches only the highlights.
 - [minColor AgX](effects/agx.md): Blender's AgX look, adjustable.
-- [minColor Output](effects/output.md) with **Rendering: OpenDRT**: the OpenDRT
-  look. The panel's **Add Output** sets it up for an OCIO project.
 
 <p>
-<img src="images/view_raw.jpg" width="32%" alt="Un-tone-mapped">
-<img src="images/view_agx.jpg" width="32%" alt="minColor AgX">
-<img src="images/view_opendrt.jpg" width="32%" alt="minColor Output, OpenDRT rendering">
+<img src="images/view_raw.jpg" width="49%" alt="Un-tone-mapped">
+<img src="images/view_agx.jpg" width="49%" alt="minColor AgX">
 </p>
 
-*Un-tone-mapped, AgX, OpenDRT: the same frame.*
+*Un-tone-mapped and AgX: the same frame.*
 
 ## 6. Render
 

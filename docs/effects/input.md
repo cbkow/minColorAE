@@ -16,8 +16,8 @@ it from the file extension.
   levels unexpanded (64–940 of 1023). After Effects expands ProRes and most video
   itself, so leave Full unless the picture looks lifted and flat.
 
-Everything below Input Range applies only to the **OpenDRT inverse** transfers,
-and is greyed out otherwise.
+**Highlight Cap** and **Peak Luminance** apply only to the **OpenDRT inverse**
+transfers, and are greyed out otherwise.
 
 ## OpenDRT inverse: bringing a finished render back
 
@@ -25,13 +25,12 @@ For a delivery that already went through a picture formation: a graded master,
 a client-approved render. Decoding it with its plain curve puts its rendered
 highlights into the comp as if they were scene light, and any rendering on top
 compresses them a second time. The inverse transfers instead return each pixel
-to the scene value the OpenDRT rendering would have made it from, like an ACES
-config's inverse output transform.
+to the scene value the OpenDRT rendering (its Standard look) would have made it
+from, like an ACES config's inverse output transform.
 
 Pick the entry that names the file's encoding: **Rec.1886**, **sRGB Display**,
 **Display P3**, **Rec.2100 PQ**, **Rec.2100 HLG**, or **Dolby PQ / P3-D65** (PQ in a
-P3-D65 container; *Rec.2100 PQ* is the Rec.2020 container). Then set the look
-rows (Look, Tonescale) to match the rendering that made the file.
+P3-D65 container; *Rec.2100 PQ* is the Rec.2020 container).
 
 - **Peak Luminance must be at least the master's peak** (its MaxCLL or mastering
   display: 1000, 2000, 4000 nits). Choosing an inverse entry sets the encoding's

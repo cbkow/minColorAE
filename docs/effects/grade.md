@@ -1,7 +1,7 @@
 # minColor Grade
 
-A colour corrector for linear light, whose luminance zones are measured the way
-the OpenDRT tonescale sees brightness. Put it between Input and Output: on a
+A colour corrector for linear light, whose luminance zones are measured with
+the norm OpenDRT's tonescale works on. Put it between Input and Output: on a
 layer, or on an adjustment layer below the Output.
 
 <img src="../images/ec_grade.png" width="430" alt="minColor Grade controls">
@@ -20,9 +20,12 @@ layer, or on an adjustment layer below the Output.
   bands; tighten the Falloff for a narrower push.
 - **HSL Secondary**: a hue / purity / level qualifier with Softness and Show Mask,
   its own wheel and correctors, and three eyedroppers: **Set Colour**, **Add to
-  Range**, **Remove from Range**. A pick is taken from what the viewer shows and
-  traced back through the rendering, so keep the **DRT Reference** group
-  matched to the Output on top.
+  Range**, **Remove from Range**.
+- **DRT Reference > Display Encoding**: how a pick is decoded. After Effects hands
+  an eyedropper the comp's final value, before the viewer's display: in an OCIO
+  project that is the working space itself, so leave the default *None - Linear /
+  Working Gamut*. With a minColor Output above the Grade (Unmanaged or
+  Adobe-engine projects), set it to the Output's Display Encoding.
 
 Order of operations: the zone weights and the secondary's key are measured on the
 incoming pixel; then temperature and tint, exposure, contrast, zones, saturation,

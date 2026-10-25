@@ -25,8 +25,8 @@ BT.1886, Display P3), and one view, **Un-tone-mapped**, on five displays.
   4](quick-start.md#4-pick-the-viewers-display)).
 - The Output Module's **Output Color Space** encodes the render.
 - **minColor Output** is optional: on top, with Display Encoding *None - Linear /
-  Working Gamut*, it adds the OpenDRT rendering and hands back linear light, which
-  the viewer and the Output Module then encode as usual.
+  Working Gamut*, it hands back the linear light unchanged, which the viewer and
+  the Output Module then encode as usual.
 
 The config and minColor Input share their colour matrices, so a conversion made
 by either one agrees with the other exactly. The ACES spaces reach D65 through

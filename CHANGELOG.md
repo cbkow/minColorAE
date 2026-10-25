@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.4 (unreleased)
+
+- **Effect Controls show only what describes the media**: gamuts, transfers,
+  display encodings, peak. The OpenDRT looks, tonescale presets and parameters,
+  and the Output's Rendering, Surround, Clamp and Peak are hidden. Nothing
+  renders differently: hidden controls keep their values, so projects saved
+  with them render as before, and the Input's OpenDRT inverse transfers (the
+  Netflicker preset) are unchanged.
+- **minColor Grade eyedroppers** pick the colour that is actually in the comp: a
+  pick is decoded by the Grade's Display Encoding (the Output in reverse) instead
+  of through the OpenDRT inverse. Display Encoding now defaults to *None - Linear
+  / Working Gamut*, right for OCIO projects; with a minColor Output above the
+  Grade, set it to the Output's encoding.
+- Retired controls that were meant to be hidden (the Grade's Contrast Pivot
+  (nits)) no longer show.
+
 ## 0.1.3 (2026-10-05): first release
 
 Six After Effects effects, a panel and an OCIO config for working in linear light.

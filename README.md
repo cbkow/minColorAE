@@ -2,21 +2,19 @@
 
 Linear-light colour tools for Adobe After Effects: six effects and a small panel
 that interpret footage into one working space, deliver through OpenColorIO, and
-add a picture formation (OpenDRT or AgX) or a highlight knee only when you ask
-for one.
+add a picture formation (AgX) or a highlight knee only when you ask for one.
 
 **[Read the documentation →](docs/README.md)** ·
 [Install](docs/install.md) · [Quick start](docs/quick-start.md)
 
 <p>
-<img src="docs/images/view_raw.jpg" width="32%" alt="Un-tone-mapped">
-<img src="docs/images/view_agx.jpg" width="32%" alt="minColor AgX">
-<img src="docs/images/view_opendrt.jpg" width="32%" alt="minColor Output, OpenDRT rendering">
+<img src="docs/images/view_raw.jpg" width="49%" alt="Un-tone-mapped">
+<img src="docs/images/view_agx.jpg" width="49%" alt="minColor AgX">
 </p>
 
 *One frame of the proof footage (a Blender render in linear ACEScg, highlights to
-55× diffuse white, spectral lasers outside ACEScg): un-tone-mapped, through
-[minColor AgX](docs/effects/agx.md), and through the [OpenDRT rendering](docs/effects/output.md).*
+55× diffuse white, spectral lasers outside ACEScg): un-tone-mapped, and through
+[minColor AgX](docs/effects/agx.md).*
 
 <p>
 <img src="docs/images/panel.png" height="300" alt="The minColor panel">
@@ -32,7 +30,7 @@ for one.
 | | |
 | --- | --- |
 | **minColor Input** | What a file is (camera logs, display encodings, linear), into the comp's working space. |
-| **minColor Output** | Encodes for a display or a delivery; un-tone-mapped, or an OpenDRT-derived rendering. |
+| **minColor Output** | Encodes for a display or a delivery: a pure conversion, no tonescale. |
 | **minColor Grade** | Zone-based colour correction for linear light, with wheels and an HSL secondary. |
 | **minColor Knee** | A BT.2390 highlight knee for HDR content heading somewhere dimmer. |
 | **minColor AgX** | Parametric, HDR-capable AgX; Blender-compatible at its defaults. |
@@ -49,10 +47,12 @@ minColorAE is free software under the **GPL-3.0** ([LICENSE](LICENSE)).
 Copyright (C) 2026 cbkow. It builds on others' work, credited in [NOTICE](NOTICE)
 and [PROVENANCE.md](PROVENANCE.md):
 
-- The rendering in minColor Output is derived from
+- The colour engine is derived from
   [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 by Jed Smith
-  (GPL-3.0), modified; see [CHANGES-FROM-OPENDRT.md](CHANGES-FROM-OPENDRT.md).
-  The unmodified DCTL is kept in `upstream/` as the test reference.
+  (GPL-3.0), modified; see [CHANGES-FROM-OPENDRT.md](CHANGES-FROM-OPENDRT.md). The
+  effects use its gamut matrices, transfer functions and, for the Input's inverse
+  transfers and the Grade's zones, its rendering; its looks and tonescale presets
+  are not offered. The unmodified DCTL is kept in `upstream/` as the test reference.
 - minColor AgX ports parts of darktable's AgX module by István Kovács and the
   darktable developers (GPL-3.0-or-later); see [CHANGES-AGX.md](CHANGES-AGX.md).
   AgX is by Troy Sobotka; the Blender version, whose primaries and HDR method it

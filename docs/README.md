@@ -2,8 +2,8 @@
 
 minColor is a set of After Effects effects and a small panel for working in
 linear light: interpret footage into one working space, composite, and deliver
-through OpenColorIO, with optional picture formations (OpenDRT, AgX) and a
-highlight knee when you want them.
+through OpenColorIO, with an optional picture formation (AgX) and a highlight
+knee when you want them.
 
 <p>
 <img src="images/view_raw.jpg" width="49%" alt="Linear ACEScg EXR viewed un-tone-mapped: highlights clip">
@@ -33,7 +33,7 @@ minColor AgX at its defaults.*
 | Effect | What it does |
 | --- | --- |
 | [minColor Input](effects/input.md) | Says what a file is (gamut, transfer, range) and brings it into the comp's linear working space. |
-| [minColor Output](effects/output.md) | Encodes for a display or a delivery, un-tone-mapped or through an OpenDRT-derived rendering. |
+| [minColor Output](effects/output.md) | Encodes for a display or a delivery: a pure conversion, no tonescale. |
 | [minColor Grade](effects/grade.md) | Exposure, contrast, six luminance zones with colour wheels, and an HSL secondary. |
 | [minColor Knee](effects/knee.md) | Rolls off highlights brighter than where they are going (HDR into SDR). |
 | [minColor AgX](effects/agx.md) | AgX picture formation, parametric and HDR-capable; Blender-compatible at its defaults. |
