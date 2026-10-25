@@ -85,13 +85,16 @@ struct DrtGradeParams {
   float reserved_f1;
   float reserved_f2;
 
-  /* ---- HSL secondary key rows (0.1.4) : 6 ---- */
+  /* ---- HSL secondary key rows (0.1.4) : 8 ---- */
   int   sec_hue_on;      /* each window on (1) or ignored (0) */
   int   sec_sat_on;
   int   sec_lev_on;
   float sec_hue_soft;    /* degrees past each end of the hue window to zero */
   float sec_sat_soft;    /* purity past each end of the purity window */
   float sec_lev_soft;    /* stops past each end of the level window */
+  float sec_blur;        /* key blur radius in pixels at full resolution (0 = none); the hosts blur the key
+                            between drt_grade_key() and drt_grade_keyed(), this core never reads it */
+  float reserved_f3;
 
   /* ---- derived by drt_grade_derive() : 18 ---- */
   float d_pivot_scene;   /* pivot as a scene norm value */
@@ -103,7 +106,7 @@ struct DrtGradeParams {
   float d_grey_l;        /* log2 of the norm of 0.18 grey: the zones' zero */
 };
 
-#define DRT_GRADE_SCALARS 80   /* 4 + 6 + 24 + 6 + 16 + 6 + 18; sizeof == 320 on every dialect */
+#define DRT_GRADE_SCALARS 82   /* 4 + 6 + 24 + 6 + 16 + 8 + 18; sizeof == 328 on every dialect */
 
 /* ------------------------------------------- neutral tonescale, forward */
 /* Scene norm -> display-linear fraction, exactly the achromatic path of
@@ -308,8 +311,46 @@ __DEVICE__ drt_sec_measure drt_secondary_measure(DRT_PARAMS_ARG p, float3 rgb) {
 }
 
 /* ------------------------------------------------------------------ grade */
-__DEVICE__ float3 drt_grade(DrtGradeParams g, DRT_PARAMS_ARG p, float3 rgb) {
-  /* 1. select on the source: the zone weights, and the secondary's key */
+/* The secondary's key for a source pixel: 1 inside all its windows, 0 outside, 0 when the
+   secondary is off. The hosts may blur it (Key Blur) before drt_grade_keyed() uses it. */
+__DEVICE__ float drt_grade_key(DrtGradeParams g, DRT_PARAMS_ARG p, float3 rgb) {
+  if (g.sec_enable == 0) return 0.0f;
+  drt_sec_measure sm = drt_secondary_measure(p, rgb);
+  float purity = sm.purity;
+  float hue = sm.hue_deg*(DRT_PI/180.0f);
+  float Ls = sm.log2_norm;
+  /* each window is full across its range and feathers to zero over its own softness past
+     each end (0.1.4: the key bars draw it that way; before, one Softness straddled the ends) */
+  float mh = 1.0f, mp = 1.0f, ml = 1.0f;
+  if (g.sec_hue_on != 0) {
+    float hc = g.sec_hue*(DRT_PI/180.0f);
+    float dh = _fabs(drt_hue_offset(hue, hc));
+    float hw = 0.5f*g.sec_hue_width*(DRT_PI/180.0f);
+    float he = _fmaxf(g.sec_hue_soft, 0.01f)*(DRT_PI/180.0f);
+    mh = drt_zone_edge((dh - hw)/he);
+  }
+  if (g.sec_sat_on != 0) {
+    float pe = _fmaxf(g.sec_sat_soft, 1e-4f);
+    /* Saturation Min 0 means no lower bound, so greys sit fully inside */
+    float mp_lo = g.sec_sat_min <= 0.0f ? 1.0f : drt_zone_edge((g.sec_sat_min - purity)/pe);
+    mp = mp_lo*drt_zone_edge((purity - g.sec_sat_max)/pe);
+  }
+  if (g.sec_lev_on != 0) {
+    float le = _fmaxf(g.sec_lev_soft, 1e-3f);
+    ml = drt_zone_edge((g.d_lum_min_l - Ls)/le)*drt_zone_edge((Ls - g.d_lum_max_l)/le);
+  }
+  return mh*mp*ml;
+}
+
+/* One tap of the key blur: a Gaussian whose 3 sigma is the radius r (pixels), unnormalised. */
+__DEVICE__ float drt_key_blur_weight(float k, float r) {
+  float s = _fmaxf(r, 1e-3f)*(1.0f/3.0f);
+  return _expf(-0.5f*(k*k)/(s*s));
+}
+
+/* The grade with the secondary's key given (drt_grade_key(), blurred or not). */
+__DEVICE__ float3 drt_grade_keyed(DrtGradeParams g, DRT_PARAMS_ARG p, float3 rgb, float mask) {
+  /* 1. select on the source: the zone weights (the secondary's key came in) */
   float L = _log2f(_fmaxf(drt_grade_norm(p, rgb), 1e-6f));
   float f = _fmaxf(g.zfalloff, 1e-3f);
   /* zone weights: full across the band, feathered `f` stops past each boundary, free to overlap */
@@ -321,36 +362,7 @@ __DEVICE__ float3 drt_grade(DrtGradeParams g, DRT_PARAMS_ARG p, float3 rgb) {
   float w5 = drt_zone_edge((g.d_lb4 - L)/f);
   float ws = 1.0f/_fmaxf(w0 + w1 + w2 + w3 + w4 + w5, 1e-6f);   /* sum to one (never below 1 before: Black and Specular are open-ended) */
   w0 *= ws; w1 *= ws; w2 *= ws; w3 *= ws; w4 *= ws; w5 *= ws;
-  float mask = 0.0f;
-  if (g.sec_enable != 0) {
-    /* HSL secondary: qualifier in the DRT's own hue / purity terms, level in stops over grey */
-    drt_sec_measure sm = drt_secondary_measure(p, rgb);
-    float purity = sm.purity;
-    float hue = sm.hue_deg*(DRT_PI/180.0f);
-    float Ls = sm.log2_norm;
-    /* each window is full across its range and feathers to zero over its own softness past
-       each end (0.1.4: the key bars draw it that way; before, one Softness straddled the ends) */
-    float mh = 1.0f, mp = 1.0f, ml = 1.0f;
-    if (g.sec_hue_on != 0) {
-      float hc = g.sec_hue*(DRT_PI/180.0f);
-      float dh = _fabs(drt_hue_offset(hue, hc));
-      float hw = 0.5f*g.sec_hue_width*(DRT_PI/180.0f);
-      float he = _fmaxf(g.sec_hue_soft, 0.01f)*(DRT_PI/180.0f);
-      mh = drt_zone_edge((dh - hw)/he);
-    }
-    if (g.sec_sat_on != 0) {
-      float pe = _fmaxf(g.sec_sat_soft, 1e-4f);
-      /* Saturation Min 0 means no lower bound, so greys sit fully inside */
-      float mp_lo = g.sec_sat_min <= 0.0f ? 1.0f : drt_zone_edge((g.sec_sat_min - purity)/pe);
-      mp = mp_lo*drt_zone_edge((purity - g.sec_sat_max)/pe);
-    }
-    if (g.sec_lev_on != 0) {
-      float le = _fmaxf(g.sec_lev_soft, 1e-3f);
-      ml = drt_zone_edge((g.d_lum_min_l - Ls)/le)*drt_zone_edge((Ls - g.d_lum_max_l)/le);
-    }
-    mask = mh*mp*ml;
-    if (g.sec_show_mask != 0) return make_float3(mask, mask, mask);
-  }
+  if (g.sec_enable != 0 && g.sec_show_mask != 0) return make_float3(mask, mask, mask);
 
   /* 2. global: temperature / tint, exposure */
   rgb = drt_vdot(drt_make_mat3(make_float3(g.d_wb_m00, g.d_wb_m01, g.d_wb_m02),
@@ -385,6 +397,11 @@ __DEVICE__ float3 drt_grade(DrtGradeParams g, DRT_PARAMS_ARG p, float3 rgb) {
   /* 6. the secondary's correctors through the mask from the source */
   if (g.sec_enable != 0) rgb = drt_grade_apply(p, rgb, mask, g.sec_exposure, g.sec_saturation, g.sec_hue_shift, g.sec_tint);
   return rgb;
+}
+
+/* The grade of one pixel, its own key unblurred. */
+__DEVICE__ float3 drt_grade(DrtGradeParams g, DRT_PARAMS_ARG p, float3 rgb) {
+  return drt_grade_keyed(g, p, rgb, drt_grade_key(g, p, rgb));
 }
 
 #endif /* OPENDRT_GRADE_H */

@@ -70,6 +70,8 @@ struct DrtRender {
     drt::DrtParams      d;
     drt::DrtGradeParams g;
     drt::DrtAgxParams   a;
+    int blurRx, blurRy;   /* Grade: the key blur's radius in this render's pixels per axis (0 = none), host only */
+    int offX, offY;       /* with a key blur, the output world's origin inside the (bigger) input world */
 };
 
 /* The parameter block AE's GPU kernels see beside the pixels. */

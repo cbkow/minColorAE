@@ -38,6 +38,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include <cstdarg>
 #include <cstdio>
@@ -312,17 +313,20 @@ bool rowToDef(const Row &r, const DrtRender &x, PF_ParamDef &d)
 
 /* ----------------------------------------------------------------- commands */
 
-/* Must equal the PiPL words. Grade adds CUSTOM_UI for its wheels. */
-const A_long kOutFlags  = PF_OutFlag_PIX_INDEPENDENT | PF_OutFlag_DEEP_COLOR_AWARE | PF_OutFlag_SEND_UPDATE_PARAMS_UI
+/* Must equal the PiPL words. Grade adds CUSTOM_UI for its wheels and, since its key blur
+   reads neighbouring pixels (0.1.4), is not PIX_INDEPENDENT. */
+const A_long kOutFlags  = PF_OutFlag_DEEP_COLOR_AWARE | PF_OutFlag_SEND_UPDATE_PARAMS_UI
 #if DRT_ROLE_GRADE
                         | PF_OutFlag_CUSTOM_UI
+#else
+                        | PF_OutFlag_PIX_INDEPENDENT
 #endif
                         ;
 const A_long kOutFlags2 = PF_OutFlag2_FLOAT_COLOR_AWARE | PF_OutFlag2_SUPPORTS_SMART_RENDER |
                           PF_OutFlag2_SUPPORTS_THREADED_RENDERING | PF_OutFlag2_SUPPORTS_GPU_RENDER_F32 |
                           PF_OutFlag2_PARAM_GROUP_START_COLLAPSED_FLAG;
 #if DRT_ROLE_GRADE
-static_assert(kOutFlags == 0x6008400, "update AE_Effect_Global_OutFlags in the Grade PiPL");
+static_assert(kOutFlags == 0x6008000, "update AE_Effect_Global_OutFlags in the Grade PiPL");
 #else
 static_assert(kOutFlags == 0x6000400, "update AE_Effect_Global_OutFlags in the PiPL");
 #endif
@@ -830,6 +834,24 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
     p->d = drt::drt_derive(p->d);
 #if DRT_ROLE_GRADE
     p->g = drt::drt_grade_derive(p->g, p->d);
+    /* the key blur, in this render's pixels (a half-resolution preview blurs half as far); the
+       input is asked for that much more on every side so the key blurs across tile edges; the
+       output stays inside the request (AE renders nothing for a result bigger than it asked
+       for), so the input world is bigger and the output sits at offX, offY inside it */
+    p->blurRx = p->blurRy = 0;
+    p->offX = p->offY = 0;
+    const PF_LRect asked = req.rect;
+    if (p->g.sec_enable != 0 && p->g.sec_blur > 0.0f) {
+        const double sx = double(in_data->downsample_x.num) / double(in_data->downsample_x.den ? in_data->downsample_x.den : 1);
+        const double sy = double(in_data->downsample_y.num) / double(in_data->downsample_y.den ? in_data->downsample_y.den : 1);
+        p->blurRx = int(std::ceil(double(p->g.sec_blur) * sx));
+        p->blurRy = int(std::ceil(double(p->g.sec_blur) * sy));
+        req.rect.left -= p->blurRx; req.rect.right += p->blurRx;
+        req.rect.top -= p->blurRy; req.rect.bottom += p->blurRy;
+    }
+#else
+    p->blurRx = p->blurRy = 0;
+    p->offX = p->offY = 0;
 #endif
 #if DRT_ROLE_KNEE
     p->d = drt::drt_knee_derive(p->d);
@@ -843,6 +865,20 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
 
     ERR(extra->cb->checkout_layer(in_data->effect_ref, 0, 0, &req, in_data->current_time, in_data->time_step,
                                   in_data->time_scale, &in_result));
+#if DRT_ROLE_GRADE
+    if (!err && (p->blurRx > 0 || p->blurRy > 0)) {
+        PF_LRect r = in_result.result_rect;   /* what came back, cut to what was asked */
+        r.left = std::max(r.left, asked.left); r.top = std::max(r.top, asked.top);
+        r.right = std::min(r.right, asked.right); r.bottom = std::min(r.bottom, asked.bottom);
+        if (r.right < r.left) r.right = r.left;
+        if (r.bottom < r.top) r.bottom = r.top;
+        extra->output->result_rect = r;
+        extra->output->max_result_rect = in_result.max_result_rect;
+        p->offX = int(r.left - in_result.result_rect.left);
+        p->offY = int(r.top - in_result.result_rect.top);
+        return err;
+    }
+#endif
     UnionLRect(&in_result.result_rect, &extra->output->result_rect);
     UnionLRect(&in_result.max_result_rect, &extra->output->max_result_rect);
     return err;
@@ -898,9 +934,124 @@ PF_Err pixel8(void *refcon, A_long, A_long, PF_Pixel8 *in, PF_Pixel8 *out)
     return PF_Err_NONE;
 }
 
+#if DRT_ROLE_GRADE
+/* The Grade with a blurred key, on the CPU: the key of every pixel, blurred across then
+   down (a Gaussian, 3 sigma = the radius, edges clamped), then the grade with each pixel's
+   blurred key. Rows run on AE's threads (iterate_generic). in and out are the same world. */
+struct KeyBlurJob {
+    const DrtRender *p;
+    PF_PixelFormat fmt;
+    PF_EffectWorld *in, *out;
+    int w, h;            /* the input world: the key and its blur */
+    int ow, oh;          /* the output world, at offX, offY inside it */
+    float *key, *tmp;
+    std::vector<float> wx, wy;   /* normalised taps, index k + radius */
+};
+
+inline void loadStraight(const KeyBlurJob &j, int x, int y, float &r, float &g, float &b, float &a)
+{
+    const char *row = reinterpret_cast<const char *>(j.in->data) + std::ptrdiff_t(y) * j.in->rowbytes;
+    if (j.fmt == PF_PixelFormat_ARGB128) { const PF_PixelFloat &q = reinterpret_cast<const PF_PixelFloat *>(row)[x]; r = q.red; g = q.green; b = q.blue; a = q.alpha; }
+    else if (j.fmt == PF_PixelFormat_ARGB64) { const PF_Pixel16 &q = reinterpret_cast<const PF_Pixel16 *>(row)[x]; const float s = 1.0f / 32768.0f; r = q.red * s; g = q.green * s; b = q.blue * s; a = q.alpha * s; }
+    else { const PF_Pixel8 &q = reinterpret_cast<const PF_Pixel8 *>(row)[x]; const float s = 1.0f / 255.0f; r = q.red * s; g = q.green * s; b = q.blue * s; a = q.alpha * s; }
+    if (a > 0.0f && a < 1.0f) { r /= a; g /= a; b /= a; }
+}
+
+PF_Err keyRow(void *refcon, A_long, A_long y, A_long)
+{
+    KeyBlurJob &j = *static_cast<KeyBlurJob *>(refcon);
+    for (int x = 0; x < j.w; ++x) {
+        float r, g, b, a;
+        loadStraight(j, x, int(y), r, g, b, a);
+        j.key[std::size_t(y) * j.w + x] = drt::drt_grade_key(j.p->g, j.p->d, drt::make_float3(r, g, b));
+    }
+    return PF_Err_NONE;
+}
+
+PF_Err blurRowX(void *refcon, A_long, A_long y, A_long)
+{
+    KeyBlurJob &j = *static_cast<KeyBlurJob *>(refcon);
+    const int rad = j.p->blurRx;
+    const float *src = j.key + std::size_t(y) * j.w;
+    float *dst = j.tmp + std::size_t(y) * j.w;
+    for (int x = 0; x < j.w; ++x) {
+        float s = 0.0f;
+        for (int k = -rad; k <= rad; ++k) s += j.wx[k + rad] * src[std::min(std::max(x + k, 0), j.w - 1)];
+        dst[x] = s;
+    }
+    return PF_Err_NONE;
+}
+
+PF_Err blurRowY(void *refcon, A_long, A_long y, A_long)
+{
+    KeyBlurJob &j = *static_cast<KeyBlurJob *>(refcon);
+    const int rad = j.p->blurRy;
+    float *dst = j.key + std::size_t(y) * j.w;
+    for (int x = 0; x < j.w; ++x) {
+        float s = 0.0f;
+        for (int k = -rad; k <= rad; ++k) s += j.wy[k + rad] * j.tmp[std::size_t(std::min(std::max(int(y) + k, 0), j.h - 1)) * j.w + x];
+        dst[x] = s;
+    }
+    return PF_Err_NONE;
+}
+
+PF_Err gradeRow(void *refcon, A_long, A_long y, A_long)
+{
+    KeyBlurJob &j = *static_cast<KeyBlurJob *>(refcon);
+    char *row = reinterpret_cast<char *>(j.out->data) + std::ptrdiff_t(y) * j.out->rowbytes;
+    const int iy = int(y) + j.p->offY;
+    for (int x = 0; x < j.ow; ++x) {
+        const int ix = x + j.p->offX;
+        float r, g, b, a;
+        loadStraight(j, ix, iy, r, g, b, a);
+        drt::float3 c = drt::drt_grade_keyed(j.p->g, j.p->d, drt::make_float3(r, g, b), j.key[std::size_t(iy) * j.w + ix]);
+        if (a > 0.0f && a < 1.0f) c = c * a;
+        if (j.fmt == PF_PixelFormat_ARGB128) { PF_PixelFloat &q = reinterpret_cast<PF_PixelFloat *>(row)[x]; q.red = c.x; q.green = c.y; q.blue = c.z; q.alpha = a; }
+        else if (j.fmt == PF_PixelFormat_ARGB64) { PF_Pixel16 &q = reinterpret_cast<PF_Pixel16 *>(row)[x];
+            q.red = A_u_short(clamp01(c.x) * 32768.0f + 0.5f); q.green = A_u_short(clamp01(c.y) * 32768.0f + 0.5f); q.blue = A_u_short(clamp01(c.z) * 32768.0f + 0.5f); q.alpha = A_u_short(a * 32768.0f + 0.5f); }
+        else { PF_Pixel8 &q = reinterpret_cast<PF_Pixel8 *>(row)[x];
+            q.red = A_u_char(clamp01(c.x) * 255.0f + 0.5f); q.green = A_u_char(clamp01(c.y) * 255.0f + 0.5f); q.blue = A_u_char(clamp01(c.z) * 255.0f + 0.5f); q.alpha = A_u_char(a * 255.0f + 0.5f); }
+    }
+    return PF_Err_NONE;
+}
+
+std::vector<float> blurTaps(int rad)
+{
+    std::vector<float> t(std::size_t(2 * rad + 1));
+    float sum = 0.0f;
+    for (int k = -rad; k <= rad; ++k) sum += (t[std::size_t(k + rad)] = drt::drt_key_blur_weight(float(k), float(rad)));
+    for (float &v : t) v /= sum;
+    return t;
+}
+
+PF_Err RenderCPUKeyBlur(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
+                        PF_EffectWorld *in, PF_EffectWorld *out, DrtRender *p)
+{
+    if (fmt != PF_PixelFormat_ARGB128 && fmt != PF_PixelFormat_ARGB64 && fmt != PF_PixelFormat_ARGB32) return PF_Err_BAD_CALLBACK_PARAM;
+    KeyBlurJob j;
+    j.p = p; j.fmt = fmt; j.in = in; j.out = out;
+    j.w = in->width; j.h = in->height;
+    j.ow = std::min(out->width, in->width - p->offX); j.oh = std::min(out->height, in->height - p->offY);
+    if (j.ow <= 0 || j.oh <= 0 || p->offX < 0 || p->offY < 0) return PF_Err_NONE;
+    std::vector<float> key(std::size_t(j.w) * std::size_t(j.h)), tmp(key.size());
+    j.key = key.data(); j.tmp = tmp.data();
+    j.wx = blurTaps(p->blurRx); j.wy = blurTaps(p->blurRy);
+    AEFX_SuiteScoper<PF_Iterate8Suite2> it(in_data, kPFIterate8Suite, kPFIterate8SuiteVersion2, out_data);
+    PF_Err err = PF_Err_NONE;
+    ERR(it->iterate_generic(j.h, &j, keyRow));
+    ERR(it->iterate_generic(j.h, &j, blurRowX));
+    ERR(it->iterate_generic(j.h, &j, blurRowY));
+    ERR(it->iterate_generic(j.oh, &j, gradeRow));
+    return err;
+}
+#endif
+
 PF_Err RenderCPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
                  PF_EffectWorld *in, PF_EffectWorld *out, DrtRender *p)
 {
+#if DRT_ROLE_GRADE
+    if (p->blurRx > 0 || p->blurRy > 0) return RenderCPUKeyBlur(in_data, out_data, fmt, in, out, p);
+#endif
     switch (fmt) {
     case PF_PixelFormat_ARGB128: {
         AEFX_SuiteScoper<PF_iterateFloatSuite2> it(in_data, kPFIterateFloatSuite, kPFIterateFloatSuiteVersion2, out_data);

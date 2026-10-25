@@ -35,6 +35,9 @@ layer, or on an adjustment layer below the Output.
   drag inside the range to slide it), the ones below to set its softness; a click
   moves the nearest handle there, Shift drags finer, double-click resets the row,
   and the check box turns the row off. The numbers are in **Key Values**.
+  **Key Blur (px)** softens the key spatially (a Gaussian, in pixels at full
+  resolution) so a noisy or edgy selection blends into its surroundings; it
+  blurs the selection, never the picture.
 - **DRT Reference > Display Encoding**: how a pick is decoded. After Effects hands
   an eyedropper the comp's final value, before the viewer's display: in an OCIO
   project that is the working space itself, so leave the default *None - Linear /

@@ -31,6 +31,8 @@
     handles and an on/off per row, drawing the key they select; one softness per
     row replaces the single Softness, and the softness now feathers outward from
     the range instead of straddling its ends.
+  - Key Blur (px) for the HSL Secondary: a Gaussian blur of the key on the CPU,
+    Metal and CUDA. The Grade is no longer flagged pixel-independent.
 
 ## 0.1.3 (2026-10-05): first release
 

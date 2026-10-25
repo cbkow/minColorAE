@@ -354,6 +354,7 @@ static const Row kGradeRows[] = {
     DRT_GCX(sec_sat_on,    "Use Saturation", 1014),
     DRT_GCX(sec_lev_on,    "Use Level",      1015),
     DRT_EX(1020),
+    DRT_GFX(sec_blur,      "Key Blur (px)",       0.0f, 100.0f, 1, 1021),   /* 0.1.4: blurs the key, not the picture */
     DRT_GC(sec_show_mask,  "Show Mask"),
     DRT_WHEELS("Secondary Correction", 6, 1005),   /* one wheel: Secondary Exposure / Tint Hue / Tint Amount */
     DRT_GF(sec_exposure,   "Secondary Exposure",   -4.0f, 4.0f, 2),

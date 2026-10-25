@@ -11,6 +11,8 @@
 #include "AEFX_SuiteHelper.h"
 #include "AE_Macros.h"
 
+#include <algorithm>
+
 namespace drtae {
 
 namespace {
@@ -55,8 +57,12 @@ PF_Err renderGPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
     ERR(gpu->GetGPUWorldData(in_data->effect_ref, in, &srcMem));
     ERR(gpu->GetGPUWorldData(in_data->effect_ref, out, &dstMem));
     if (err) return err;
-    const int e = drtCudaRender(srcMem, dstMem, int(in->rowbytes / 16), int(out->rowbytes / 16), int(in->width), int(in->height),
-                                kRole, &p->d, &p->g, &p->a, dev.command_queuePV);
+    const int e = (p->blurRx > 0 || p->blurRy > 0)
+        ? drtCudaRenderKeyBlur(srcMem, dstMem, int(in->rowbytes / 16), int(out->rowbytes / 16), int(in->width), int(in->height),
+                               std::min(int(out->width), int(in->width) - p->offX), std::min(int(out->height), int(in->height) - p->offY),
+                               p->offX, p->offY, &p->d, &p->g, p->blurRx, p->blurRy, dev.command_queuePV)
+        : drtCudaRender(srcMem, dstMem, int(in->rowbytes / 16), int(out->rowbytes / 16), int(in->width), int(in->height),
+                        kRole, &p->d, &p->g, &p->a, dev.command_queuePV);
     if (e) {
         dlog("CUDA render failed: %s", drtCudaErrorString(e));
         return PF_Err_INTERNAL_STRUCT_DAMAGED;

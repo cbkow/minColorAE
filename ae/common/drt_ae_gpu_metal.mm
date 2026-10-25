@@ -14,6 +14,8 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
+#include <algorithm>
+
 #include "drt_ae_msl.h" /* generated: kDrtAeMsl = prefix + shim + params + kernel + wrapper */
 
 namespace drtae {
@@ -22,6 +24,21 @@ PF_GPU_Framework gpuFramework() { return PF_GPU_Framework_METAL; }
 
 struct MetalGPUData {
     id<MTLComputePipelineState> pipeline;
+    id<MTLComputePipelineState> key, blur, keyed;   /* Grade's key blur passes; nil elsewhere */
+};
+
+/* the key blur's headers, as drt_ae_kernels.metal declares them */
+struct DrtBlurHeader {
+    int width;
+    int height;
+    int radius;
+    int dir;
+};
+struct DrtKeyedHeader {
+    int keyWidth;
+    int offX;
+    int offY;
+    int pad;
 };
 
 PF_Err gpuDeviceSetup(PF_InData *in_data, PF_OutData *out_data, PF_GPUDeviceSetupExtra *extra)
@@ -51,10 +68,23 @@ PF_Err gpuDeviceSetup(PF_InData *in_data, PF_OutData *out_data, PF_GPUDeviceSetu
             dlog("pipeline failed: %s", error ? [[error localizedDescription] UTF8String] : "?");
             return PF_Err_INTERNAL_STRUCT_DAMAGED;
         }
+        id<MTLComputePipelineState> keyPso = nil, blurPso = nil, keyedPso = nil;
+#if DRT_ROLE_GRADE
+        for (int k = 0; k < 3; ++k) {
+            NSString *name = k == 0 ? @"drt_grade_key_kernel" : (k == 1 ? @"drt_key_blur_kernel" : @"drt_grade_keyed_kernel");
+            id<MTLFunction> f = [[lib newFunctionWithName:name] autorelease];
+            id<MTLComputePipelineState> s = f ? [device newComputePipelineStateWithFunction:f error:&error] : nil;
+            if (!s) { dlog("pipeline %s failed", [name UTF8String]); [pso release]; [keyPso release]; [blurPso release]; return PF_Err_INTERNAL_STRUCT_DAMAGED; }
+            if (k == 0) keyPso = s; else if (k == 1) blurPso = s; else keyedPso = s;
+        }
+#endif
         dlog("Metal pipeline ready on %s", [[device name] UTF8String]);
 
         PF_Handle h = handles->host_new_handle(sizeof(MetalGPUData));
         reinterpret_cast<MetalGPUData *>(*h)->pipeline = pso;
+        reinterpret_cast<MetalGPUData *>(*h)->key = keyPso;
+        reinterpret_cast<MetalGPUData *>(*h)->blur = blurPso;
+        reinterpret_cast<MetalGPUData *>(*h)->keyed = keyedPso;
         extra->output->gpu_data = h;
         out_data->out_flags2 = PF_OutFlag2_SUPPORTS_GPU_RENDER_F32;
     }
@@ -65,7 +95,8 @@ PF_Err gpuDeviceSetdown(PF_InData *in_data, PF_OutData *out_data, PF_GPUDeviceSe
 {
     if (extra->input->what_gpu == PF_GPU_Framework_METAL && extra->input->gpu_data) {
         PF_Handle h = (PF_Handle)extra->input->gpu_data;
-        [reinterpret_cast<MetalGPUData *>(*h)->pipeline release];
+        MetalGPUData *md = reinterpret_cast<MetalGPUData *>(*h);
+        [md->pipeline release]; [md->key release]; [md->blur release]; [md->keyed release];
         AEFX_SuiteScoper<PF_HandleSuite1> handles(in_data, kPFHandleSuite, kPFHandleSuiteVersion1, out_data);
         handles->host_dispose_handle(h);
     }
@@ -110,6 +141,47 @@ PF_Err renderGPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
 
         id<MTLCommandBuffer> cb = [queue commandBuffer];
         id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
+#if DRT_ROLE_GRADE
+        if ((p->blurRx > 0 || p->blurRy > 0) && md->key && md->blur && md->keyed) {
+            /* key -> across -> down -> graded, all on this command buffer */
+            const NSUInteger n = NSUInteger(in->width) * NSUInteger(in->height) * sizeof(float);
+            id<MTLBuffer> k0 = [[device newBufferWithLength:n options:MTLResourceStorageModePrivate] autorelease];
+            id<MTLBuffer> k1 = [[device newBufferWithLength:n options:MTLResourceStorageModePrivate] autorelease];
+            const MTLSize tg = MTLSizeMake(16, 16, 1), grid = MTLSizeMake((in->width + 15) / 16, (in->height + 15) / 16, 1);
+            [enc setComputePipelineState:md->key];
+            [enc setBuffer:(id<MTLBuffer>)srcMem offset:0 atIndex:0];
+            [enc setBuffer:k0 offset:0 atIndex:1];
+            [enc setBuffer:pbuf offset:0 atIndex:2];
+            [enc setBuffer:hbuf offset:0 atIndex:3];
+            [enc setBuffer:gbuf offset:0 atIndex:4];
+            [enc dispatchThreadgroups:grid threadsPerThreadgroup:tg];
+            for (int dir = 0; dir < 2; ++dir) {
+                DrtBlurHeader bh = { in->width, in->height, dir == 0 ? p->blurRx : p->blurRy, dir };
+                [enc setComputePipelineState:md->blur];
+                [enc setBuffer:(dir == 0 ? k0 : k1) offset:0 atIndex:0];
+                [enc setBuffer:(dir == 0 ? k1 : k0) offset:0 atIndex:1];
+                [enc setBytes:&bh length:sizeof bh atIndex:2];
+                [enc dispatchThreadgroups:grid threadsPerThreadgroup:tg];
+            }
+            DrtAeHeader oh = h;   /* the output's size; it sits at offX, offY in the input */
+            oh.width = std::min(out->width, in->width - p->offX);
+            oh.height = std::min(out->height, in->height - p->offY);
+            const DrtKeyedHeader kh = { in->width, p->offX, p->offY, 0 };
+            [enc setComputePipelineState:md->keyed];
+            [enc setBuffer:(id<MTLBuffer>)srcMem offset:0 atIndex:0];
+            [enc setBuffer:(id<MTLBuffer>)dstMem offset:0 atIndex:1];
+            [enc setBuffer:pbuf offset:0 atIndex:2];
+            [enc setBytes:&oh length:sizeof oh atIndex:3];
+            [enc setBuffer:gbuf offset:0 atIndex:4];
+            [enc setBuffer:k0 offset:0 atIndex:5];
+            [enc setBytes:&kh length:sizeof kh atIndex:6];
+            [enc dispatchThreadgroups:MTLSizeMake((oh.width + 15) / 16, (oh.height + 15) / 16, 1) threadsPerThreadgroup:tg];
+            [enc endEncoding];
+            [cb commit];
+            if ([cb error]) err = PF_Err_INTERNAL_STRUCT_DAMAGED;
+            return err;
+        }
+#endif
         [enc setComputePipelineState:md->pipeline];
         [enc setBuffer:(id<MTLBuffer>)srcMem offset:0 atIndex:0];
         [enc setBuffer:(id<MTLBuffer>)dstMem offset:0 atIndex:1];
