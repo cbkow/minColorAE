@@ -39,7 +39,7 @@ add a picture formation (AgX) or a highlight knee only when you ask for one.
 | **OCIO config** | Linear conversions, generated from the same matrices as the effects. |
 
 After Effects 2026 (26.5) on macOS (Metal) and Windows (CUDA), with CPU rendering
-everywhere. Version 0.1.3.
+everywhere. Version 0.1.4.
 
 ## Credits and licensing
 
