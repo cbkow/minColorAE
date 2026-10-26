@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.4 (unreleased)
+## 0.1.4 (2026-10-25)
 
 - **Effect Controls show only what describes the media**: gamuts, transfers,
   display encodings, peak. The OpenDRT looks, tonescale presets and parameters,
