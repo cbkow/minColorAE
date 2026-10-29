@@ -9,8 +9,9 @@
  * blocks (namespace drt, same layout) as raw bytes, copied into the kernel's
  * parameters by value (DrtParams 496 + DrtGradeParams 328 + DrtAgxParams 336 bytes).
  *
- * AE's CUDA worlds are float4 BGRA (x = B, y = G, z = R, w = A), premultiplied,
- * pitch in pixels. Colour is transformed on straight RGB, alpha untouched.
+ * AE's CUDA worlds are float4 BGRA (x = B, y = G, z = R, w = A), STRAIGHT alpha (AE
+ * hands effects unmatted pixels; see applyPixel in drt_ae_effect.cpp), pitch in
+ * pixels. RGB is transformed as it is; alpha passes through.
  */
 #include <cuda_runtime.h>
 #include <cstring>
@@ -49,9 +50,7 @@ __global__ void drt_cuda_kernel(const float4 *src, float4 *dst, int srcPitch, in
     const float4 px = src[y * srcPitch + x];
     const float al = px.w;
     float3 rgb = make_float3(px.z, px.y, px.x);
-    if (al > 0.0f && al < 1.0f) rgb = rgb / al;
     rgb = drt_cuda_apply(role, p, g, a, rgb);
-    if (al > 0.0f && al < 1.0f) rgb = rgb * al;
     dst[y * dstPitch + x] = make_float4(rgb.z, rgb.y, rgb.x, al);
 }
 
@@ -80,7 +79,6 @@ __global__ void drt_cuda_key_kernel(const float4 *src, float *key, int srcPitch,
     const float4 px = src[y * srcPitch + x];
     const float al = px.w;
     float3 rgb = make_float3(px.z, px.y, px.x);
-    if (al > 0.0f && al < 1.0f) rgb = rgb / al;
     key[y * width + x] = drt_grade_key(g, p, rgb);
 }
 
@@ -109,9 +107,7 @@ __global__ void drt_cuda_keyed_kernel(const float4 *src, float4 *dst, const floa
     const float4 px = src[iy * srcPitch + ix];
     const float al = px.w;
     float3 rgb = make_float3(px.z, px.y, px.x);
-    if (al > 0.0f && al < 1.0f) rgb = rgb / al;
     rgb = drt_grade_keyed(g, p, rgb, key[iy * keyWidth + ix]);
-    if (al > 0.0f && al < 1.0f) rgb = rgb * al;
     dst[y * dstPitch + x] = make_float4(rgb.z, rgb.y, rgb.x, al);
 }
 

@@ -7,8 +7,9 @@
  * in the wrapper prefix the CMake embed puts first.
  *
  * AE's GPU worlds are MTLBuffers of float4 in BGRA order (x = B, y = G, z = R,
- * w = A), premultiplied. Pitch is in pixels (rowbytes / 16). Colour is transformed
- * on straight RGB: unpremultiply, transform, premultiply, alpha untouched.
+ * w = A), STRAIGHT alpha (AE hands effects unmatted pixels; see applyPixel in
+ * drt_ae_effect.cpp). Pitch is in pixels (rowbytes / 16). RGB is transformed as it
+ * is; alpha passes through.
  */
 
 struct DrtAeHeader {
@@ -28,9 +29,7 @@ kernel void drt_output_kernel(const device float4     *src [[buffer(0)]],
     float4 px = src[xy.y * h.srcPitch + xy.x];
     const float a = px.w;
     float3 rgb = float3(px.z, px.y, px.x);
-    if (a > 0.0f && a < 1.0f) rgb = rgb / a;
     rgb = drt_transform(p, rgb);
-    if (a > 0.0f && a < 1.0f) rgb = rgb * a;
     dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
 }
 
@@ -45,9 +44,7 @@ kernel void drt_grade_kernel(const device float4     *src [[buffer(0)]],
     float4 px = src[xy.y * h.srcPitch + xy.x];
     const float a = px.w;
     float3 rgb = float3(px.z, px.y, px.x);
-    if (a > 0.0f && a < 1.0f) rgb = rgb / a;
     rgb = drt_grade(g, p, rgb);
-    if (a > 0.0f && a < 1.0f) rgb = rgb * a;
     dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
 }
 
@@ -71,7 +68,6 @@ kernel void drt_grade_key_kernel(const device float4     *src [[buffer(0)]],
     float4 px = src[xy.y * h.srcPitch + xy.x];
     const float a = px.w;
     float3 rgb = float3(px.z, px.y, px.x);
-    if (a > 0.0f && a < 1.0f) rgb = rgb / a;
     key[xy.y * uint(h.width) + xy.x] = drt_grade_key(g, p, rgb);
 }
 
@@ -115,9 +111,7 @@ kernel void drt_grade_keyed_kernel(const device float4     *src [[buffer(0)]],
     float4 px = src[iy * h.srcPitch + ix];
     const float a = px.w;
     float3 rgb = float3(px.z, px.y, px.x);
-    if (a > 0.0f && a < 1.0f) rgb = rgb / a;
     rgb = drt_grade_keyed(g, p, rgb, key[iy * uint(k.keyWidth) + ix]);
-    if (a > 0.0f && a < 1.0f) rgb = rgb * a;
     dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
 }
 
@@ -131,9 +125,7 @@ kernel void drt_macfix_kernel(const device float4     *src [[buffer(0)]],
     float4 px = src[xy.y * h.srcPitch + xy.x];
     const float a = px.w;
     float3 rgb = float3(px.z, px.y, px.x);
-    if (a > 0.0f && a < 1.0f) rgb = rgb / a;
     rgb = drt_macos_fix(rgb);
-    if (a > 0.0f && a < 1.0f) rgb = rgb * a;
     dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
 }
 
@@ -147,9 +139,7 @@ kernel void drt_knee_kernel(const device float4     *src [[buffer(0)]],
     float4 px = src[xy.y * h.srcPitch + xy.x];
     const float a = px.w;
     float3 rgb = float3(px.z, px.y, px.x);
-    if (a > 0.0f && a < 1.0f) rgb = rgb / a;
     rgb = drt_knee(p, rgb);
-    if (a > 0.0f && a < 1.0f) rgb = rgb * a;
     dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
 }
 
@@ -164,9 +154,7 @@ kernel void drt_agx_kernel(const device float4     *src [[buffer(0)]],
     float4 px = src[xy.y * h.srcPitch + xy.x];
     const float a = px.w;
     float3 rgb = float3(px.z, px.y, px.x);
-    if (a > 0.0f && a < 1.0f) rgb = rgb / a;
     rgb = drt_agx(g, rgb);
-    if (a > 0.0f && a < 1.0f) rgb = rgb * a;
     dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
 }
 
@@ -180,8 +168,6 @@ kernel void drt_input_kernel(const device float4     *src [[buffer(0)]],
     float4 px = src[xy.y * h.srcPitch + xy.x];
     const float a = px.w;
     float3 rgb = float3(px.z, px.y, px.x);
-    if (a > 0.0f && a < 1.0f) rgb = rgb / a;
     rgb = drt_input_transform(p, rgb);
-    if (a > 0.0f && a < 1.0f) rgb = rgb * a;
     dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
 }

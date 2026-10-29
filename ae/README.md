@@ -37,7 +37,9 @@ the layer or the project is.
 - **None** (`common/drt_ae_gpu_none.cpp`): Windows without the CUDA toolkit.
 
 Pre-render offers the GPU only when AE's framework for the frame is the
-backend's. Alpha is handled straight: unpremultiply, transform, premultiply.
+backend's. AE hands effects straight (unmatted) alpha, so RGB is transformed as
+it is and alpha passes through (0.1.4 and earlier unpremultiplied first, which
+rendered edges and semi-transparent pixels wrong).
 
 Development switches, read once per process (`/tmp` on macOS, `%TEMP%` on
 Windows): create `mincolor_ae.log` to log every command, `mincolor_ae_nogpu` to

@@ -88,7 +88,7 @@ using drtae::dlog;
    and mirror it in the PiPLs' AE_Effect_Version: PF_VERSION(major, minor, 0, DEVELOP, 1). */
 #define DRT_MAJOR_VERSION 0
 #define DRT_MINOR_VERSION 1
-#define DRT_BUG_VERSION   4   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges; 3: the AgX (2026-10-04); 4: the OpenDRT look controls hidden (2026-10-25). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
+#define DRT_BUG_VERSION   5   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges; 3: the AgX (2026-10-04); 4: the OpenDRT look controls hidden (2026-10-25); 5: the Grade's Zone Values twirl (2026-10-29). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
 
 extern "C" {
 DllExport PF_Err EffectMain(PF_Cmd cmd, PF_InData *in_data, PF_OutData *out_data,
@@ -437,7 +437,7 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
             /* a data-less row that owns a rectangle in the Effect Controls panel; we paint it and take its events */
             def.ui_flags = PF_PUI_CONTROL | PF_PUI_DONT_ERASE_CONTROL;
             def.ui_width = drtwheels::kWidth;
-            def.ui_height = A_short(drtwheels::heightFor(1.0f, drtwheels::wheelsInRow(r.choices)));
+            def.ui_height = A_short(drtwheels::heightFor(1.0f, drtwheels::wheelsInRow(r.choices), drtwheels::zonesRow(r.choices)));
             PF_ADD_NULL(r.name, id);
 #endif
             break;
@@ -886,14 +886,16 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
 
 /* -------------------------------------------------------------- CPU render */
 
-/* Straight-alpha colour transform: unpremultiply, apply, premultiply. */
-inline void applyStraight(const DrtRender &p, float &r, float &g, float &b, float a)
+/* The colour transform on one pixel. AE hands effects STRAIGHT (unmatted) alpha: the RGB
+   of a half-transparent pixel is the colour itself, not colour x alpha (verified 2026-10-29:
+   a 0.18 solid at 50 % opacity reaches the effect as 0.18, alpha 0.5). So RGB is transformed
+   as it is and alpha passes through. Until 0.1.4 this divided by alpha first and multiplied
+   back after, which brightened every edge and semi-transparent pixel before the transform and
+   darkened it after: anti-aliased edges, feathered masks and faded layers came out wrong.
+   (Premiere Pro, which is not a target, hands premultiplied pixels.) */
+inline void applyPixel(const DrtRender &p, float &r, float &g, float &b)
 {
-    drt::float3 c = drt::make_float3(r, g, b);
-    const bool partial = a > 0.0f && a < 1.0f;
-    if (partial) c = c / a;
-    c = DRT_APPLY(p, c);
-    if (partial) c = c * a;
+    const drt::float3 c = DRT_APPLY(p, drt::make_float3(r, g, b));
     r = c.x; g = c.y; b = c.z;
 }
 
@@ -901,7 +903,7 @@ PF_Err pixel32(void *refcon, A_long, A_long, PF_PixelFloat *in, PF_PixelFloat *o
 {
     const DrtRender &p = *static_cast<const DrtRender *>(refcon);
     float r = in->red, g = in->green, b = in->blue;
-    applyStraight(p, r, g, b, in->alpha);
+    applyPixel(p, r, g, b);
     out->red = r; out->green = g; out->blue = b; out->alpha = in->alpha;
     return PF_Err_NONE;
 }
@@ -913,7 +915,7 @@ PF_Err pixel16(void *refcon, A_long, A_long, PF_Pixel16 *in, PF_Pixel16 *out)
     const DrtRender &p = *static_cast<const DrtRender *>(refcon);
     const float s = 1.0f / 32768.0f;
     float r = in->red * s, g = in->green * s, b = in->blue * s;
-    applyStraight(p, r, g, b, in->alpha * s);
+    applyPixel(p, r, g, b);
     out->red = A_u_short(clamp01(r) * 32768.0f + 0.5f);
     out->green = A_u_short(clamp01(g) * 32768.0f + 0.5f);
     out->blue = A_u_short(clamp01(b) * 32768.0f + 0.5f);
@@ -926,7 +928,7 @@ PF_Err pixel8(void *refcon, A_long, A_long, PF_Pixel8 *in, PF_Pixel8 *out)
     const DrtRender &p = *static_cast<const DrtRender *>(refcon);
     const float s = 1.0f / 255.0f;
     float r = in->red * s, g = in->green * s, b = in->blue * s;
-    applyStraight(p, r, g, b, in->alpha * s);
+    applyPixel(p, r, g, b);
     out->red = A_u_char(clamp01(r) * 255.0f + 0.5f);
     out->green = A_u_char(clamp01(g) * 255.0f + 0.5f);
     out->blue = A_u_char(clamp01(b) * 255.0f + 0.5f);
@@ -948,13 +950,13 @@ struct KeyBlurJob {
     std::vector<float> wx, wy;   /* normalised taps, index k + radius */
 };
 
-inline void loadStraight(const KeyBlurJob &j, int x, int y, float &r, float &g, float &b, float &a)
+/* one input pixel as floats; straight alpha, so RGB is used as it is (see applyPixel) */
+inline void loadPixel(const KeyBlurJob &j, int x, int y, float &r, float &g, float &b, float &a)
 {
     const char *row = reinterpret_cast<const char *>(j.in->data) + std::ptrdiff_t(y) * j.in->rowbytes;
     if (j.fmt == PF_PixelFormat_ARGB128) { const PF_PixelFloat &q = reinterpret_cast<const PF_PixelFloat *>(row)[x]; r = q.red; g = q.green; b = q.blue; a = q.alpha; }
     else if (j.fmt == PF_PixelFormat_ARGB64) { const PF_Pixel16 &q = reinterpret_cast<const PF_Pixel16 *>(row)[x]; const float s = 1.0f / 32768.0f; r = q.red * s; g = q.green * s; b = q.blue * s; a = q.alpha * s; }
     else { const PF_Pixel8 &q = reinterpret_cast<const PF_Pixel8 *>(row)[x]; const float s = 1.0f / 255.0f; r = q.red * s; g = q.green * s; b = q.blue * s; a = q.alpha * s; }
-    if (a > 0.0f && a < 1.0f) { r /= a; g /= a; b /= a; }
 }
 
 PF_Err keyRow(void *refcon, A_long, A_long y, A_long)
@@ -962,7 +964,7 @@ PF_Err keyRow(void *refcon, A_long, A_long y, A_long)
     KeyBlurJob &j = *static_cast<KeyBlurJob *>(refcon);
     for (int x = 0; x < j.w; ++x) {
         float r, g, b, a;
-        loadStraight(j, x, int(y), r, g, b, a);
+        loadPixel(j, x, int(y), r, g, b, a);
         j.key[std::size_t(y) * j.w + x] = drt::drt_grade_key(j.p->g, j.p->d, drt::make_float3(r, g, b));
     }
     return PF_Err_NONE;
@@ -1003,9 +1005,8 @@ PF_Err gradeRow(void *refcon, A_long, A_long y, A_long)
     for (int x = 0; x < j.ow; ++x) {
         const int ix = x + j.p->offX;
         float r, g, b, a;
-        loadStraight(j, ix, iy, r, g, b, a);
-        drt::float3 c = drt::drt_grade_keyed(j.p->g, j.p->d, drt::make_float3(r, g, b), j.key[std::size_t(iy) * j.w + ix]);
-        if (a > 0.0f && a < 1.0f) c = c * a;
+        loadPixel(j, ix, iy, r, g, b, a);
+        const drt::float3 c = drt::drt_grade_keyed(j.p->g, j.p->d, drt::make_float3(r, g, b), j.key[std::size_t(iy) * j.w + ix]);
         if (j.fmt == PF_PixelFormat_ARGB128) { PF_PixelFloat &q = reinterpret_cast<PF_PixelFloat *>(row)[x]; q.red = c.x; q.green = c.y; q.blue = c.z; q.alpha = a; }
         else if (j.fmt == PF_PixelFormat_ARGB64) { PF_Pixel16 &q = reinterpret_cast<PF_Pixel16 *>(row)[x];
             q.red = A_u_short(clamp01(c.x) * 32768.0f + 0.5f); q.green = A_u_short(clamp01(c.y) * 32768.0f + 0.5f); q.blue = A_u_short(clamp01(c.z) * 32768.0f + 0.5f); q.alpha = A_u_short(a * 32768.0f + 0.5f); }
