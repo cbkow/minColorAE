@@ -17,6 +17,14 @@ display white clips on screen and in display-referred renders. Add
 [minColor Knee](effects/knee.md) or [minColor AgX](effects/agx.md). Check the
 project is 32 bpc; 8 and 16 bpc clip at 1.0.
 
+**"Display view color space not valid (5027::304)" after Set OCIO**, on every
+frame, scrub or RAM preview, whatever the viewer shows. A Mocha AE instance is
+rendering: Mocha keeps the OCIO display and view it was opened with, named after
+the config the project had at the time, and Set OCIO changed the config. Open
+each Mocha AE instance, pick a display and view from the new config in its
+viewer colour settings, and save; or apply Mocha again. Switching the effects off
+confirms it: the dialog stops.
+
 **The project lost its OCIO config** (opened from another location, or the
 `minColor` folder did not come along). After Effects silently falls back to its
 Adobe colour engine; the effects still render, only the conversions in the
