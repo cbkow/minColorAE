@@ -26,7 +26,7 @@ resource 'PiPL' (16000) {
 #endif
 		AE_PiPL_Version { 2, 0 },
 		AE_Effect_Spec_Version { PF_PLUG_IN_VERSION, PF_PLUG_IN_SUBVERS },
-		AE_Effect_Version { 40961 },               /* 0.1.4 develop build 1 = PF_VERSION(0,1,4,DEVELOP,1); bump with the table */
+		AE_Effect_Version { 43009 },               /* 0.1.5 develop build 1 = PF_VERSION(0,1,5,DEVELOP,1); bump with the table */
 		AE_Effect_Info_Flags { 0 },
 		AE_Effect_Global_OutFlags { 0x6008000 },   /* + CUSTOM_UI: the wheels; no PIX_INDEPENDENT: the key blur reads neighbours */
 		AE_Effect_Global_OutFlags_2 { 0xA001408 },

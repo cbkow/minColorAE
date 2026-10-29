@@ -87,6 +87,7 @@ struct Row {
 #define DRT_FS(field, label, lo, hi, slo, shi, prec) { kFloat, label, &drt::DrtParams::field, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0, slo, shi }
 #define DRT_FX(field, label, lo, hi, prec, id) { kFloat, label, &drt::DrtParams::field, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, id }
 #define DRT_C(field, label)               { kCheck, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 1, 0, nullptr, 0, nullptr, 0 }
+#define DRT_CX(field, label, id)          { kCheck, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 1, 0, nullptr, 0, nullptr, id }
 #define DRT_P(field, label, str, n)       { kPopup, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 0, 0, str, n, nullptr, 0 }
 #define DRT_PX(field, label, str, n, id)  { kPopup, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 0, 0, str, n, nullptr, id }
 #define DRT_PH(field, label, str, n)      { kPopupHidden, label, nullptr, &drt::DrtParams::field, nullptr, nullptr, 0, 0, 0, str, n, nullptr, 0 }
@@ -109,6 +110,7 @@ struct Row {
 #define DRT_GCX(field, label, id)          { kCheck, label, nullptr, nullptr, nullptr, &drt::DrtGradeParams::field, 0, 1, 0, nullptr, 0, nullptr, id }
 #define DRT_GFX(field, label, lo, hi, prec, id) { kFloat, label, nullptr, nullptr, &drt::DrtGradeParams::field, nullptr, lo, hi, prec, nullptr, 0, nullptr, id }
 #define DRT_GH(field, label, lo, hi, prec)  { kFloatHidden, label, nullptr, nullptr, &drt::DrtGradeParams::field, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0 }
+#define DRT_GHX(field, label, lo, hi, prec, id) { kFloatHidden, label, nullptr, nullptr, &drt::DrtGradeParams::field, nullptr, lo, hi, prec, nullptr, 0, nullptr, id }
 /* AgX-block bindings */
 #define DRT_AF(field, label, lo, hi, prec) { kFloat, label, nullptr, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0, 0, 0, &drt::DrtAgxParams::field }
 #define DRT_AFS(field, label, lo, hi, slo, shi, prec) { kFloat, label, nullptr, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0, slo, shi, &drt::DrtAgxParams::field }
@@ -259,41 +261,41 @@ static const int kInputLookRowsFrom = 4;   /* first row that is inverse-only */
 static const int kInputLookTableFrom = 6;  /* first of DRT_LOOK_ROWS */
 
 /* ----------------------------------------------------------------- Grade */
-#define DRT_ZONE_ROWS(z, name) \
-    DRT_T(name), \
-    DRT_GF(z##_exposure,   name " Exposure",     -4.0f, 4.0f, 2), \
-    DRT_GF(z##_saturation, name " Saturation",    0.0f, 2.0f, 2), \
-    DRT_GF(z##_hue,        name " Tint Hue",      0.0f, 360.0f, 0), \
-    DRT_GF(z##_tint,       name " Tint Amount",   0.0f, 1.0f, 2), \
-    DRT_E()
+/* one zone's four sliders; id0 = the id of its Exposure (the ids they had as auto rows in 0.1.4) */
+#define DRT_ZONE_ROWS(z, name, id0) \
+    DRT_GFX(z##_exposure,   name " Exposure",     -4.0f, 4.0f, 2, id0), \
+    DRT_GFX(z##_saturation, name " Saturation",    0.0f, 2.0f, 2, id0 + 1), \
+    DRT_GFX(z##_hue,        name " Tint Hue",      0.0f, 360.0f, 0, id0 + 2), \
+    DRT_GFX(z##_tint,       name " Tint Amount",   0.0f, 1.0f, 2, id0 + 3)
 
 /* The DRT reference the zones are measured through: Display Encoding, HDR
    sliders, Look, Tonescale and the Tonescale group only. Purity, brilliance and
-   hue shift do not move the tonescale norm, so they are not needed here. */
+   hue shift do not move the tonescale norm, so they are not needed here.
+   Explicit ids 67..89 = the ids these rows had as auto rows through 0.1.4. */
 #define DRT_REFERENCE_ROWS \
-    DRT_T("DRT Reference"), \
-    DRT_PRESET(kPresetDisplay,   "Display Encoding"), \
-    DRT_F(tn_Lp,  "Peak Luminance (nits)",   100.0f, 10000.0f, 0), \
-    DRT_F(tn_gb,  "HDR Grey Boost",           0.0f,    1.0f, 3), \
-    DRT_F(tn_Lg,  "Grey Luminance (nits)",    3.0f,   25.0f, 1), \
-    DRT_PRESET(kPresetLook,      "Look"), \
-    DRT_PRESET(kPresetTonescale, "Tonescale"), \
-    DRT_F(tn_con,     "Contrast (DRT)",         1.0f,  2.0f, 2), \
-    DRT_F(tn_sh,      "Shoulder Clip",          0.0f,  1.0f, 2), \
-    DRT_F(tn_toe,     "Toe",                    0.0f,  0.1f, 3), \
-    DRT_F(tn_off,     "Offset",                 0.0f,  0.02f, 4), \
-    DRT_C(tn_hcon_enable, "Enable Contrast High"), \
-    DRT_F(tn_hcon,    "Contrast High",         -1.0f,  1.0f, 2), \
-    DRT_F(tn_hcon_pv, "Contrast High Pivot",    0.0f,  4.0f, 2), \
-    DRT_F(tn_hcon_st, "Contrast High Strength", 0.0f,  4.0f, 2), \
-    DRT_C(tn_lcon_enable, "Enable Contrast Low"), \
-    DRT_F(tn_lcon,    "Contrast Low",           0.0f,  3.0f, 2), \
-    DRT_F(tn_lcon_w,  "Contrast Low Width",     0.0f,  2.0f, 2), \
-    DRT_P(tn_su,      "Surround", kSurroundPopup, 3), \
-    DRT_F(rs_sa,    "Render Space Strength",  0.0f, 0.6f, 3), \
-    DRT_F(rs_rw,    "Render Space Weight R",  0.0f, 0.8f, 3), \
-    DRT_F(rs_bw,    "Render Space Weight B",  0.0f, 0.8f, 3), \
-    DRT_E()
+    DRT_TX("DRT Reference", 67), \
+    DRT_PRESETX(kPresetDisplay,   "Display Encoding", 68), \
+    DRT_FX(tn_Lp,  "Peak Luminance (nits)",   100.0f, 10000.0f, 0, 69), \
+    DRT_FX(tn_gb,  "HDR Grey Boost",           0.0f,    1.0f, 3, 70), \
+    DRT_FX(tn_Lg,  "Grey Luminance (nits)",    3.0f,   25.0f, 1, 71), \
+    DRT_PRESETX(kPresetLook,      "Look", 72), \
+    DRT_PRESETX(kPresetTonescale, "Tonescale", 73), \
+    DRT_FX(tn_con,     "Contrast (DRT)",         1.0f,  2.0f, 2, 74), \
+    DRT_FX(tn_sh,      "Shoulder Clip",          0.0f,  1.0f, 2, 75), \
+    DRT_FX(tn_toe,     "Toe",                    0.0f,  0.1f, 3, 76), \
+    DRT_FX(tn_off,     "Offset",                 0.0f,  0.02f, 4, 77), \
+    DRT_CX(tn_hcon_enable, "Enable Contrast High", 78), \
+    DRT_FX(tn_hcon,    "Contrast High",         -1.0f,  1.0f, 2, 79), \
+    DRT_FX(tn_hcon_pv, "Contrast High Pivot",    0.0f,  4.0f, 2, 80), \
+    DRT_FX(tn_hcon_st, "Contrast High Strength", 0.0f,  4.0f, 2, 81), \
+    DRT_CX(tn_lcon_enable, "Enable Contrast Low", 82), \
+    DRT_FX(tn_lcon,    "Contrast Low",           0.0f,  3.0f, 2, 83), \
+    DRT_FX(tn_lcon_w,  "Contrast Low Width",     0.0f,  2.0f, 2, 84), \
+    DRT_PX(tn_su,      "Surround", kSurroundPopup, 3, 85), \
+    DRT_FX(rs_sa,    "Render Space Strength",  0.0f, 0.6f, 3, 86), \
+    DRT_FX(rs_rw,    "Render Space Weight R",  0.0f, 0.8f, 3, 87), \
+    DRT_FX(rs_bw,    "Render Space Weight B",  0.0f, 0.8f, 3, 88), \
+    DRT_EX(89)
 
 static const Row kGradeRows[] = {
     /* the wheels first, no group: pure UI over the zone sliders below (hue = angle, tint = radius,
@@ -311,24 +313,29 @@ static const Row kGradeRows[] = {
     DRT_GF(temperature, "Temperature",        -1.0f,  1.0f, 2),
     DRT_GF(tint,        "Tint",               -1.0f,  1.0f, 2),
 
-    DRT_ZONE_ROWS(z0, "Black"),
-    DRT_ZONE_ROWS(z1, "Dark"),
-    DRT_ZONE_ROWS(z2, "Shadow"),
-    DRT_ZONE_ROWS(z3, "Light"),
-    DRT_ZONE_ROWS(z4, "Highlight"),
-    DRT_ZONE_ROWS(z5, "Specular"),
+    /* Zone Values (0.1.5): the numeric side of the wheels in one twirl: the six zones' sliders,
+       then the five boundaries and the Falloff, which the wheels row also draws (the stop under
+       each dial, the bar along the bottom). Through 0.1.4 these sat in six per-zone twirls
+       (Black ... Specular) and a Zone Ranges twirl; those topic ids (8, 13, 14, 19, 20, 25, 26,
+       31, 32, 37, 38, 43, 44, 51) are retired. Every slider keeps the id it had as an auto row,
+       so projects saved by 0.1.4 load into it; from here on the table is explicit-id only. */
+    DRT_TX("Zone Values", 1022),
+    DRT_ZONE_ROWS(z0, "Black",     9),
+    DRT_ZONE_ROWS(z1, "Dark",      15),
+    DRT_ZONE_ROWS(z2, "Shadow",    21),
+    DRT_ZONE_ROWS(z3, "Light",     27),
+    DRT_ZONE_ROWS(z4, "Highlight", 33),
+    DRT_ZONE_ROWS(z5, "Specular",  39),
+    DRT_GFX(zb0, "Black / Dark (stops)",         -8.0f,  0.0f, 2, 45),
+    DRT_GFX(zb1, "Dark / Shadow (stops)",        -6.0f,  0.0f, 2, 46),
+    DRT_GFX(zb2, "Shadow / Light (stops)",       -4.0f,  2.0f, 2, 47),
+    DRT_GFX(zb3, "Light / Highlight (stops)",    -2.0f,  4.0f, 2, 48),
+    DRT_GFX(zb4, "Highlight / Specular (stops)",  0.0f,  8.0f, 2, 49),
+    DRT_GFX(zfalloff, "Falloff (stops)",          0.25f, 6.0f, 2, 50),
+    DRT_EX(1023),
 
-    DRT_T("Zone Ranges"),
-    DRT_GF(zb0, "Black / Dark (stops)",         -8.0f,  0.0f, 2),
-    DRT_GF(zb1, "Dark / Shadow (stops)",        -6.0f,  0.0f, 2),
-    DRT_GF(zb2, "Shadow / Light (stops)",       -4.0f,  2.0f, 2),
-    DRT_GF(zb3, "Light / Highlight (stops)",    -2.0f,  4.0f, 2),
-    DRT_GF(zb4, "Highlight / Specular (stops)",  0.0f,  8.0f, 2),
-    DRT_GF(zfalloff, "Falloff (stops)",          0.25f, 6.0f, 2),
-    DRT_E(),
-
-    DRT_T("HSL Secondary"),
-    DRT_GC(sec_enable,     "Enable Secondary"),
+    DRT_TX("HSL Secondary", 52),
+    DRT_GCX(sec_enable,    "Enable Secondary", 53),
     /* eyedroppers, Lumetri-style: a pick is decoded by the reference's Display Encoding back to the
        working space and sets / widens / narrows the three windows below (drt_ae_effect.cpp, pickColour) */
     DRT_PICK("Set Colour",        0, 1006),
@@ -338,15 +345,15 @@ static const Row kGradeRows[] = {
        twirl under them, as the zone sliders sit under the wheels */
     DRT_KEYBARS("Key", 1012),
     DRT_TX("Key Values", 1019),
-    DRT_GF(sec_hue,        "Hue Centre",        0.0f, 360.0f, 0),
-    DRT_GF(sec_hue_width,  "Hue Width",         0.0f, 360.0f, 0),
-    DRT_GF(sec_sat_min,    "Saturation Min",    0.0f,   2.0f, 2),
-    DRT_GF(sec_sat_max,    "Saturation Max",    0.0f,   2.0f, 2),
-    DRT_GH(sec_lum_min,    "Luminance Min (nits)", 0.0f, 10000.0f, 1),   /* retired 2026-10-03, hidden, ids kept */
-    DRT_GH(sec_lum_max,    "Luminance Max (nits)", 0.0f, 10000.0f, 1),
+    DRT_GFX(sec_hue,       "Hue Centre",        0.0f, 360.0f, 0, 54),
+    DRT_GFX(sec_hue_width, "Hue Width",         0.0f, 360.0f, 0, 55),
+    DRT_GFX(sec_sat_min,   "Saturation Min",    0.0f,   2.0f, 2, 56),
+    DRT_GFX(sec_sat_max,   "Saturation Max",    0.0f,   2.0f, 2, 57),
+    DRT_GHX(sec_lum_min,   "Luminance Min (nits)", 0.0f, 10000.0f, 1, 58),   /* retired 2026-10-03, hidden, ids kept */
+    DRT_GHX(sec_lum_max,   "Luminance Max (nits)", 0.0f, 10000.0f, 1, 59),
     DRT_GFX(sec_lev_min,   "Level Min (stops)",   -10.0f, 10.0f, 2, 1010),
     DRT_GFX(sec_lev_max,   "Level Max (stops)",   -10.0f, 10.0f, 2, 1011),
-    DRT_GH(sec_softness,   "Softness",          0.0f,   1.0f, 2),   /* retired 0.1.4: one softness per window below */
+    DRT_GHX(sec_softness,  "Softness",          0.0f,   1.0f, 2, 60),   /* retired 0.1.4: one softness per window below */
     DRT_GFX(sec_hue_soft,  "Hue Softness",        0.0f, 180.0f, 1, 1016),
     DRT_GFX(sec_sat_soft,  "Saturation Softness", 0.0f,   1.0f, 3, 1017),
     DRT_GFX(sec_lev_soft,  "Level Softness (stops)", 0.0f, 6.0f, 2, 1018),
@@ -355,13 +362,13 @@ static const Row kGradeRows[] = {
     DRT_GCX(sec_lev_on,    "Use Level",      1015),
     DRT_EX(1020),
     DRT_GFX(sec_blur,      "Key Blur (px)",       0.0f, 100.0f, 1, 1021),   /* 0.1.4: blurs the key, not the picture */
-    DRT_GC(sec_show_mask,  "Show Mask"),
+    DRT_GCX(sec_show_mask, "Show Mask", 61),
     DRT_WHEELS("Secondary Correction", 6, 1005),   /* one wheel: Secondary Exposure / Tint Hue / Tint Amount */
-    DRT_GF(sec_exposure,   "Secondary Exposure",   -4.0f, 4.0f, 2),
-    DRT_GF(sec_saturation, "Secondary Saturation",  0.0f, 2.0f, 2),
-    DRT_GF(sec_hue_shift,  "Secondary Tint Hue",    0.0f, 360.0f, 0),
-    DRT_GF(sec_tint,       "Secondary Tint Amount", 0.0f, 1.0f, 2),
-    DRT_E(),
+    DRT_GFX(sec_exposure,  "Secondary Exposure",   -4.0f, 4.0f, 2, 62),
+    DRT_GFX(sec_saturation, "Secondary Saturation", 0.0f, 2.0f, 2, 63),
+    DRT_GFX(sec_hue_shift, "Secondary Tint Hue",    0.0f, 360.0f, 0, 64),
+    DRT_GFX(sec_tint,      "Secondary Tint Amount", 0.0f, 1.0f, 2, 65),
+    DRT_EX(66),
 
     DRT_REFERENCE_ROWS,
 };

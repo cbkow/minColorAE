@@ -13,20 +13,25 @@ layer, or on an adjustment layer below the Output.
   there, drag to move it with the mouse; Shift drags finer, double-click resets.
   A tint changes colour only: the zone keeps its brightness. The wheels follow
   the width of the Effect Controls panel.
+  Under each dial is the zone's boundary, in stops over mid grey: "to −3.00 st"
+  is where Black hands over to Dark, and so on; the Specular dial shows where it
+  starts. Drag a boundary sideways to move it (it stays between its
+  neighbours), double-click to reset it. The **Falloff** bar along the bottom is
+  how far each zone blends into its neighbours.
 - **Working Gamut**: what the comp is in.
 - **Exposure**, **Contrast** with a **Contrast Pivot** in stops over mid grey,
   **Saturation**, **Temperature**, **Tint**. Temperature and Tint are a
   white-balance shift: Temperature moves along the warm–cool (Kelvin) line, +1
   about 6500 K to 3900 K, Tint across it toward magenta (+) or green (−), and
   grey keeps its brightness.
-- **Black … Specular**: each zone's Exposure, Saturation, Tint Hue and Tint
-  Amount (the numeric side of the wheels).
-- **Zone Ranges**: the five boundaries in stops over mid grey (defaults -3, -1.5,
-  0, +1.5, +3) and a **Falloff** (default 1 stop), how far each zone blends into
-  its neighbours. The zones always share a pixel out in full: the same push on
-  all six is the same as that push globally, and a zone owns its own band
-  (about three quarters at its centre, half at a boundary). Widen the Falloff
-  for softer hand-overs.
+- **Zone Values**: the numeric side of the wheels, for typing, keyframing and
+  expressions: each zone's Exposure, Saturation, Tint Hue and Tint Amount, then
+  the five boundaries in stops over mid grey (defaults -3, -1.5, 0, +1.5, +3)
+  and the **Falloff** (default 1 stop). Saturation has no wheel, so a zone's
+  saturation is set here. The zones always share a pixel out in full: the same
+  push on all six is the same as that push globally, and a zone owns its own
+  band (about three quarters at its centre, half at a boundary). Widen the
+  Falloff for softer hand-overs.
 - **HSL Secondary**: a hue / saturation / level key with Show Mask, its own
   wheel and correctors, and three eyedroppers: **Set Colour**, **Add to Range**,
   **Remove from Range**. The **key bars** under the eyedroppers show and set the

@@ -26,10 +26,16 @@
  * kBarGain), Shift a quarter as fast. The puck ranges over the whole wheel, ring
  * included (until 0.1.4 it was held inside the hole and geared down to 0.4).
  * Double-click resets the wheel's tint or the bar's exposure.
+ *
+ * The zones row (0.1.5) also draws the zone boundaries: the stop under each dial is the
+ * boundary at the top of that zone ("to -3.00 st"; the Specular dial shows "from"), scrubbed
+ * sideways (kStopGain per pixel, Shift a quarter), kept in order with its neighbours; and
+ * the Falloff as a bar along the bottom of the row. Both are the Zone Values sliders.
  */
 #pragma once
 
 #include "drt_ae_params.h"
+#include "opendrt_presets.h"   /* drt_grade_defaults: double-click resets a boundary or the falloff */
 
 #include "AE_Effect.h"
 #include "AE_EffectUI.h"
@@ -52,6 +58,12 @@ const int   kWidth    = kPerRow * kCellW;  /* ui_width of a control row */
 const float kMinScale = 0.75f;             /* cell scale limits vs the natural cell: a 57 pt ring ... */
 const float kMaxScale = 1.5f;              /* ... to a 114 pt one; past these the cells stop following the panel */
 const float kTextH    = 54.0f;             /* label + readout under the wheel; the text does not scale */
+const float kLineP    = 14.0f;             /* pitch of the text lines under a wheel: label, readout, stop */
+const float kStopH    = 15.0f;             /* zones row: one more text line, the boundary stop under each dial */
+const float kFalloffH = 34.0f;             /* zones row: the Falloff bar along the bottom */
+const float kStopGain = 0.02f;             /* stops per mouse pixel scrubbing a boundary */
+const float kStopBoxW = 80.0f;             /* the stop's value box under a dial (text size, so it does not scale) */
+const float kStopBoxH = 17.0f;
 const float kWheelGain = 1.0f;             /* puck travel per mouse travel (1 = the puck tracks the mouse) */
 const float kBarGain   = 1.0f;             /* same for the exposure bar's thumb */
 /* natural geometry at kCellW; everything scales with the cell */
@@ -83,6 +95,15 @@ static const GF kZoneTint[kWheelCount] = {
     &drt::DrtGradeParams::z3_tint, &drt::DrtGradeParams::z4_tint, &drt::DrtGradeParams::z5_tint,
     &drt::DrtGradeParams::sec_tint };
 static const char *const kZoneLabels[kWheelCount] = { "Black", "Dark", "Shadow", "Light", "Highlight", "Specular", "Secondary" };
+/* the zone boundaries (the top of zones 0..4; Specular's bottom is boundary 4) and the falloff */
+static const GF kZoneBound[DRT_ZONE_COUNT - 1] = {
+    &drt::DrtGradeParams::zb0, &drt::DrtGradeParams::zb1, &drt::DrtGradeParams::zb2,
+    &drt::DrtGradeParams::zb3, &drt::DrtGradeParams::zb4 };
+static const GF kFalloff = &drt::DrtGradeParams::zfalloff;
+inline int boundOf(int z) { return z < DRT_ZONE_COUNT - 1 ? z : DRT_ZONE_COUNT - 2; }
+
+/* the zones row (first wheel 0) draws the boundaries and the falloff; the secondary's row does not */
+inline bool zonesRow(int first) { return first < DRT_ZONE_COUNT; }
 
 /* how many wheels a row starting at `first` holds: the zones from there on, or the secondary's one */
 inline int wheelsInRow(int first)
@@ -114,16 +135,20 @@ inline float widthScale(float rowW)
     const float s = rowW / float(kWidth);
     return s < kMinScale ? kMinScale : (s > kMaxScale ? kMaxScale : s);
 }
-inline float lineHeight(float s) { return (kWheelCy + kRingOut) * s + kTextH; }
-inline int heightFor(float s, int count) { return int(float(linesFor(count)) * lineHeight(s) + 0.5f); }
+inline float lineHeight(float s, bool zones) { return (kWheelCy + kRingOut) * s + kTextH + (zones ? kStopH : 0.0f); }
+inline int heightFor(float s, int count, bool zones)
+{
+    return int(float(linesFor(count)) * lineHeight(s, zones) + (zones ? kFalloffH : 0.0f) + 0.5f);
+}
 
-inline Cell cellGeom(const PF_Rect &frame, int i, int count)
+inline Cell cellGeom(const PF_Rect &frame, int i, int count, bool zones)
 {
     Cell c;
     const float rowW = float(frame.right - frame.left);
     /* the width sets the scale; until the row has been given the matching height, stay inside the one it has */
     c.s = widthScale(rowW);
-    const float fit = (float(frame.bottom - frame.top) / float(linesFor(count)) - kTextH) / (kWheelCy + kRingOut);
+    const float fit = ((float(frame.bottom - frame.top) - (zones ? kFalloffH : 0.0f)) / float(linesFor(count)) - kTextH - (zones ? kStopH : 0.0f))
+                      / (kWheelCy + kRingOut);
     if (c.s > fit) c.s = fit;
     if (c.s < kMinScale) c.s = kMinScale;
     const float cellW = float(kCellW) * c.s;
@@ -131,7 +156,7 @@ inline Cell cellGeom(const PF_Rect &frame, int i, int count)
     if (off < 0.0f) off = 0.0f;
     c.left = float(frame.left) + off + float(i % kPerRow) * cellW;
     c.cx = c.left + kWheelCx * c.s;
-    c.cy = float(frame.top) + float(i / kPerRow) * lineHeight(c.s) + kWheelCy * c.s;
+    c.cy = float(frame.top) + float(i / kPerRow) * lineHeight(c.s, zones) + kWheelCy * c.s;
     c.ringOut = kRingOut * c.s;
     c.ringIn = kRingIn * c.s;
     c.puckR = kPuckR * (c.s > 1.0f ? std::sqrt(c.s) : c.s);   /* a big wheel keeps a small puck */
@@ -144,6 +169,28 @@ inline Cell cellGeom(const PF_Rect &frame, int i, int count)
 
 /* how far the puck's centre travels for Tint 1: to the ring's outer edge */
 inline float puckReach(const Cell &c) { return c.ringOut - c.puckR - 1.0f; }
+
+/* the text lines under a wheel (baselines): label, readout, and on the zones row the stop */
+inline float labelY(const Cell &c) { return c.cy + c.ringOut + 15.0f; }
+inline float stopY(const Cell &c) { return labelY(c) + 2.0f * kLineP; }
+
+/* the Falloff bar along the bottom of the zones row: the track from x0 to x1, its centre line y */
+struct Falloff { float x0, x1, y, textY; };
+inline Falloff falloffGeom(const PF_Rect &frame, int count)
+{
+    const Cell c0 = cellGeom(frame, 0, count, true);
+    const int across = count < kPerRow ? count : kPerRow;
+    const Cell cN = cellGeom(frame, across - 1, count, true);
+    Falloff f;
+    f.x0 = c0.barX;
+    f.x1 = cN.left + float(kCellW) * cN.s - kBarX * cN.s;
+    const float top = float(frame.top) + float(linesFor(count)) * lineHeight(c0.s, true);
+    f.textY = top + 13.0f;
+    f.y = top + 24.0f;
+    return f;
+}
+inline void rowRange(int idx, float &lo, float &hi) { lo = drtae::kGradeRows[idx - 1].lo; hi = drtae::kGradeRows[idx - 1].hi; }
+inline float falloffX(const Falloff &f, float v, float lo, float hi) { return f.x0 + (v - lo) / (hi - lo) * (f.x1 - f.x0); }
 
 /* hue (deg, clockwise from top) + tint (0..1)  <->  puck vector, unit disc */
 inline void puckFromHueTint(float hue, float tint, float &px, float &py)
@@ -161,17 +208,25 @@ inline void hueTintFromPuck(float px, float py, float oldHue, float &hue, float 
     if (hue < 0.0f) hue += 360.0f;
 }
 
-enum Hit { kNone = 0, kWheel = 1, kBar = 2 };
+enum Hit { kNone = 0, kWheel = 1, kBar = 2, kStop = 3, kFalloffBar = 4 };
 
 inline Hit hitTest(const PF_Rect &frame, int firstZone, const PF_Point &m, int &zoneOut)
 {
     const int count = wheelsInRow(firstZone);
+    const bool zones = zonesRow(firstZone);
     for (int i = 0; i < count; ++i) {
-        const Cell c = cellGeom(frame, i, count);
+        const Cell c = cellGeom(frame, i, count, zones);
         const float dx = float(m.h) - c.cx, dy = float(m.v) - c.cy;
         if (std::sqrt(dx * dx + dy * dy) <= c.ringOut + 4.0f) { zoneOut = firstZone + i; return kWheel; }
         if (float(m.h) >= c.barX - 8.0f && float(m.h) <= c.barX + c.barW + 10.0f &&
             float(m.v) >= c.barTop - 6.0f && float(m.v) <= c.barTop + c.barH + 6.0f) { zoneOut = firstZone + i; return kBar; }
+        if (zones && std::fabs(dx) <= kStopBoxW * 0.5f + 2.0f && float(m.v) >= stopY(c) - kStopBoxH + 4.0f && float(m.v) <= stopY(c) + 6.0f) {
+            zoneOut = firstZone + i; return kStop;
+        }
+    }
+    if (zones) {
+        const Falloff f = falloffGeom(frame, count);
+        if (float(m.h) >= f.x0 - 8.0f && float(m.h) <= f.x1 + 8.0f && std::fabs(float(m.v) - f.y) <= 9.0f) { zoneOut = firstZone; return kFalloffBar; }
     }
     zoneOut = -1;
     return kNone;
@@ -243,10 +298,10 @@ inline void (*g_log)(const char *fmt, ...) = nullptr;
    PF_UpdateParamUI may change; AE lays the panel out again and sends a fresh draw. The
    change is cosmetic (not saved, no undo), so a reopened project starts at the natural height and
    the first draw corrects it. */
-inline void fitHeight(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[], int paramIdx, const PF_Rect &frame, int count)
+inline void fitHeight(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[], int paramIdx, const PF_Rect &frame, int count, bool zones)
 {
     const int have = int(frame.bottom - frame.top);
-    const int want = heightFor(widthScale(float(frame.right - frame.left)), count);
+    const int want = heightFor(widthScale(float(frame.right - frame.left)), count, zones);
     if (std::abs(want - have) < 3) return;
     /* the same request with nothing moved means AE is not taking it: do not spin */
     static int lastIdx = -1, lastWant = 0, lastHave = 0, repeats = 0;
@@ -400,9 +455,10 @@ inline PF_Err draw(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params
         suites.supplier_suiteP->GetDefaultFontSize(p.sup, &fontSize);
 
         const int count = wheelsInRow(firstZone);
+        const bool zones = zonesRow(firstZone);
         for (int i = 0; i < count; ++i) {
             const int z = firstZone + i;
-            const Cell c = cellGeom(frame, i, count);
+            const Cell c = cellGeom(frame, i, count, zones);
             const float exposure = readFloat(params, paramOf(kZoneExposure[z]));
             const float hue = readFloat(params, paramOf(kZoneHue[z]));
             const float tint = readFloat(params, paramOf(kZoneTint[z]));
@@ -434,7 +490,7 @@ inline PF_Err draw(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params
             p.triangle(c.barX + c.barW + 1.0f, ty, c.barX + c.barW + 1.0f + 7.0f * c.s, ty - th, c.barX + c.barW + 1.0f + 7.0f * c.s, ty + th, thumb);
 
             /* label + readout */
-            const float labelY = c.cy + c.ringOut + 15.0f;
+            const float labelY = drtwheels::labelY(c);
             p.text(kZoneLabels[z], c.cx, labelY, textC, fontSize);
             char line[64] = "";
             if (exposure != 0.0f || tint != 0.0f) {
@@ -444,14 +500,41 @@ inline PF_Err draw(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params
                     std::snprintf(line, sizeof line, "%+.2f st", exposure);
                 else
                     std::snprintf(line, sizeof line, "%d%% @ %d\xB0", int(tint * 100.0f + 0.5f), int(hue + 0.5f) % 360);
-                p.text(line, c.cx, labelY + fontSize + 3.0f, dim, fontSize - 1.0f);
+                p.text(line, c.cx, labelY + kLineP, dim, fontSize - 1.0f);
             }
+
+            /* the zone's boundary: the stop at its top (Specular: at its bottom), in a dark value box
+               so it reads as a number to change */
+            if (zones) {
+                const float b = readFloat(params, paramOf(kZoneBound[boundOf(z)]));
+                std::snprintf(line, sizeof line, z < DRT_ZONE_COUNT - 1 ? "to %+.2f st" : "from %+.2f st", b);
+                const float bx = c.cx - kStopBoxW * 0.5f, by = stopY(c) - kStopBoxH + 4.0f;
+                p.rect(bx, by, kStopBoxW, kStopBoxH, grey(0.30f));
+                p.rect(bx + 1.0f, by + 1.0f, kStopBoxW - 2.0f, kStopBoxH - 2.0f, track);
+                p.text(line, c.cx, stopY(c), textC, fontSize - 1.0f);
+            }
+        }
+
+        /* the Falloff bar along the bottom */
+        if (zones) {
+            const Falloff f = falloffGeom(frame, count);
+            const int idx = paramOf(kFalloff);
+            float lo, hi;
+            rowRange(idx, lo, hi);
+            const float v = readFloat(params, idx);
+            char line[48];
+            std::snprintf(line, sizeof line, "Falloff %.2f st", v);
+            p.text(line, (f.x0 + f.x1) * 0.5f, f.textY, textC, fontSize - 1.0f);
+            p.rect(f.x0, f.y - 1.5f, f.x1 - f.x0, 3.0f, track);
+            const float x = falloffX(f, v < lo ? lo : (v > hi ? hi : v), lo, hi);
+            p.rect(f.x0, f.y - 1.5f, x - f.x0, 3.0f, grey(0.35f));
+            p.disc(x, f.y, 5.0f, thumb, &puckEdge, 1.0f);
         }
         suites.surface_suiteP->Flush(p.surf);
     }
     AEFX_ReleaseDrawbotSuites(in_data, out_data);
     extra->evt_out_flags |= PF_EO_HANDLED_EVENT;
-    fitHeight(in_data, out_data, params, int(extra->effect_win.index), frame, wheelsInRow(firstZone));
+    fitHeight(in_data, out_data, params, int(extra->effect_win.index), frame, wheelsInRow(firstZone), zonesRow(firstZone));
     return PF_Err_NONE;
 }
 
@@ -481,10 +564,52 @@ inline void applyBarDelta(PF_ParamDef *params[], int z, float dy, float gain, co
     writeFloat(params, ie, e);
 }
 
-/* A click on the wheel away from the puck puts the puck under the mouse; on the bar away
-   from the thumb, the thumb. Returns whether it moved anything. */
-inline bool placeAt(PF_ParamDef *params[], int z, Hit h, const PF_Point &m, const Cell &c)
+/* A boundary scrubbed sideways: kStopGain stops per pixel, held between its neighbours and inside
+   its slider's range. */
+inline void applyStopDelta(PF_ParamDef *params[], int z, float dx, float gain)
 {
+    const int b = boundOf(z);
+    const int idx = paramOf(kZoneBound[b]);
+    float lo, hi;
+    rowRange(idx, lo, hi);
+    if (b > 0) lo = std::fmax(lo, readFloat(params, paramOf(kZoneBound[b - 1])));
+    if (b < DRT_ZONE_COUNT - 2) hi = std::fmin(hi, readFloat(params, paramOf(kZoneBound[b + 1])));
+    float v = readFloat(params, idx) + dx * kStopGain * gain;
+    if (v < lo) v = lo;
+    if (v > hi) v = hi;
+    writeFloat(params, idx, v);
+}
+
+inline void applyFalloffDelta(PF_ParamDef *params[], float dx, float gain, const Falloff &f)
+{
+    const int idx = paramOf(kFalloff);
+    float lo, hi;
+    rowRange(idx, lo, hi);
+    float v = readFloat(params, idx) + dx / (f.x1 - f.x0) * (hi - lo) * gain;
+    if (v < lo) v = lo;
+    if (v > hi) v = hi;
+    writeFloat(params, idx, v);
+}
+
+/* A click on the wheel away from the puck puts the puck under the mouse; on the bar away
+   from the thumb, the thumb; on the falloff track away from its thumb, that thumb. The
+   stops only scrub. Returns whether it moved anything. */
+inline bool placeAt(PF_ParamDef *params[], int z, Hit h, const PF_Point &m, const Cell &c, const Falloff *f)
+{
+    if (h == kStop) return false;
+    if (h == kFalloffBar) {
+        if (!f) return false;
+        const int idx = paramOf(kFalloff);
+        float lo, hi;
+        rowRange(idx, lo, hi);
+        const float v = readFloat(params, idx);
+        if (std::fabs(float(m.h) - falloffX(*f, v, lo, hi)) <= 8.0f) return false;   /* on the thumb: just drag */
+        float nv = lo + (float(m.h) - f->x0) / (f->x1 - f->x0) * (hi - lo);
+        if (nv < lo) nv = lo;
+        if (nv > hi) nv = hi;
+        writeFloat(params, idx, nv);
+        return true;
+    }
     if (h == kWheel) {
         const int ih = paramOf(kZoneHue[z]), it = paramOf(kZoneTint[z]);
         const float oldHue = readFloat(params, ih);
@@ -525,7 +650,7 @@ inline PF_Err handleEvent(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         int z;
         const Hit h = hitTest(frame, firstZone, extra->u.adjust_cursor.screen_point, z);
         if (h == kWheel) extra->u.adjust_cursor.set_cursor = PF_Cursor_DRAG_DOT;
-        else if (h == kBar) extra->u.adjust_cursor.set_cursor = PF_Cursor_FINGER_POINTER_SCRUB;
+        else if (h == kBar || h == kStop || h == kFalloffBar) extra->u.adjust_cursor.set_cursor = PF_Cursor_FINGER_POINTER_SCRUB;
         if (h != kNone) extra->evt_out_flags |= PF_EO_HANDLED_EVENT;
         return PF_Err_NONE;
     }
@@ -539,13 +664,17 @@ inline PF_Err handleEvent(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         if (ck.num_clicks >= 2) {
             /* double-click: reset */
             undoGroup(in_data, true);
-            if (h == kWheel) writeFloat(params, paramOf(kZoneTint[z]), 0.0f);
-            else             writeFloat(params, paramOf(kZoneExposure[z]), 0.0f);
+            if (h == kWheel)           writeFloat(params, paramOf(kZoneTint[z]), 0.0f);
+            else if (h == kBar)        writeFloat(params, paramOf(kZoneExposure[z]), 0.0f);
+            else if (h == kStop)       writeFloat(params, paramOf(kZoneBound[boundOf(z)]), drt::drt_grade_defaults().*kZoneBound[boundOf(z)]);
+            else if (h == kFalloffBar) writeFloat(params, paramOf(kFalloff), drt::drt_grade_defaults().*kFalloff);
             undoGroup(in_data, false);
             ck.send_drag = FALSE;
         } else {
             undoGroup(in_data, true);
-            placeAt(params, z, h, ck.screen_point, cellGeom(frame, z - firstZone, wheelsInRow(firstZone)));
+            const Falloff f = zonesRow(firstZone) ? falloffGeom(frame, wheelsInRow(firstZone)) : Falloff();
+            placeAt(params, z, h, ck.screen_point, cellGeom(frame, z - firstZone, wheelsInRow(firstZone), zonesRow(firstZone)),
+                    zonesRow(firstZone) ? &f : nullptr);
             ck.send_drag = TRUE;
             ck.continue_refcon[0] = A_intptr_t((z << 4) | int(h));
             ck.continue_refcon[1] = A_intptr_t(ck.screen_point.h);
@@ -568,9 +697,11 @@ inline PF_Err handleEvent(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         ck.continue_refcon[2] = A_intptr_t(ck.screen_point.v);
         const float gain = (ck.modifiers & PF_Mod_SHIFT_KEY) ? 0.25f : 1.0f;
         if (dx != 0.0f || dy != 0.0f) {
-            const Cell c = cellGeom(frame, z - firstZone, wheelsInRow(firstZone));
-            if (what == kWheel) applyWheelDelta(params, z, dx, dy, gain, c);
-            else                applyBarDelta(params, z, dy, gain, c);
+            const Cell c = cellGeom(frame, z - firstZone, wheelsInRow(firstZone), zonesRow(firstZone));
+            if (what == kWheel)           applyWheelDelta(params, z, dx, dy, gain, c);
+            else if (what == kBar)        applyBarDelta(params, z, dy, gain, c);
+            else if (what == kStop)       applyStopDelta(params, z, dx, gain);
+            else if (what == kFalloffBar) applyFalloffDelta(params, dx, gain, falloffGeom(frame, wheelsInRow(firstZone)));
         }
         if (ck.last_time) {
             undoGroup(in_data, false);
