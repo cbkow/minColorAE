@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.5 (2026-10-29)
+
+- **Alpha fixed**: anti-aliased edges, feathered masks, faded layers and every
+  other semi-transparent pixel now render the same colour as an opaque pixel of
+  the same value. After Effects hands effects straight (unmatted) alpha; the
+  effects treated it as premultiplied, divided the colour by alpha before the
+  transform and multiplied it back after, so a 50 % pixel was transformed one
+  stop too bright and then halved. All six effects, CPU, Metal and CUDA.
+- **minColor Grade: zone boundaries on the dials.** Each dial shows the stop
+  where its zone hands over to the next ("to −3.00 st"; Specular shows where it
+  starts); drag it sideways to move the boundary, double-click to reset. The
+  Falloff is a bar along the bottom of the Zone Correction row. The numeric
+  side of the wheels is one **Zone Values** twirl (the six zones' sliders, the
+  boundaries and the Falloff) in place of the six per-zone twirls and Zone
+  Ranges. Saved projects load unchanged.
+
 ## 0.1.4 (2026-10-25)
 
 - **Effect Controls show only what describes the media**: gamuts, transfers,
