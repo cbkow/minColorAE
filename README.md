@@ -38,8 +38,8 @@ add a picture formation (AgX) or a highlight knee only when you ask for one.
 | **minColor panel** | Set OCIO, per-project In rules, Apply In, Add Output. |
 | **OCIO config** | Linear conversions, generated from the same matrices as the effects. |
 
-After Effects 2026 (26.5) on macOS (Metal) and Windows (CUDA), with CPU rendering
-everywhere. Version 0.1.5.
+After Effects 2027 (27.0) on macOS (Metal) and Windows (CUDA), with CPU rendering
+everywhere; made on After Effects 2026 (26.5) until 0.1.5. Version 0.1.6.
 
 ## Credits and licensing
 
@@ -81,12 +81,14 @@ cmake --build build --target install_presets
 
 The plug-ins install to
 `/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/minColor/`, the
-panel to `~/Library/Preferences/Adobe/After Effects/26.5/Scripts/ScriptUI Panels/`
+panel to `~/Library/Preferences/Adobe/After Effects/27.0/Scripts/ScriptUI Panels/`
 (Window > minColor.jsx, dockable; AE reads that folder at launch), and the
-animation presets to `~/Documents/Adobe/After Effects 2026/User Presets/minColor/`.
+animation presets to `~/Documents/Adobe/After Effects 2027/User Presets/minColor/`
+(the folders of After Effects 2027; set `MINCOLOR_PANEL_DIR` / `MINCOLOR_PRESETS_DIR`
+for another version).
 
 **Windows.** Visual Studio (2026 tested; its CMake and Ninja are used) and, for
-the GPU path, the CUDA toolkit (13.4 tested; only the compiler and runtime
+the GPU path, the CUDA toolkit (13.5 tested; only the compiler and runtime
 libraries are needed, not Nsight or the Visual Studio integration). Without the
 toolkit the effects build CPU-only. From an *x64 Native Tools* prompt (or after
 `vcvars64.bat`), elevated for `install_ae`:
@@ -99,8 +101,8 @@ cmake --build build --target install_ae install_panel install_presets
 ```
 
 The effects (`.aex`) install to `C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore\minColor\`,
-the panel to `%APPDATA%\Adobe\After Effects\26.5\Scripts\ScriptUI Panels\`, and the
-presets to `Documents\Adobe\After Effects 2026\User Presets\minColor\`. The CUDA kernels
+the panel to `%APPDATA%\Adobe\After Effects\27.0\Scripts\ScriptUI Panels\`, and the
+presets to `Documents\Adobe\After Effects 2027\User Presets\minColor\`. The CUDA kernels
 are built for Turing and newer (PTX 7.5, SASS for Ampere, Ada and Blackwell). AE uses
 them when the project's renderer is *Mercury GPU Acceleration (CUDA)*; under any other
 renderer the effects render on the CPU, with the same results.

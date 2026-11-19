@@ -92,7 +92,7 @@ using drtae::dlog;
    and mirror it in the PiPLs' AE_Effect_Version: PF_VERSION(major, minor, 0, DEVELOP, 1). */
 #define DRT_MAJOR_VERSION 0
 #define DRT_MINOR_VERSION 1
-#define DRT_BUG_VERSION   5   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges; 3: the AgX (2026-10-04); 4: the OpenDRT look controls hidden (2026-10-25); 5: the Grade's Zone Values twirl (2026-10-29). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
+#define DRT_BUG_VERSION   6   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges; 3: the AgX (2026-10-04); 4: the OpenDRT look controls hidden (2026-10-25); 5: the Grade's Zone Values twirl (2026-10-29); 6: the new Grade and its table (2026-11-19). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
 
 extern "C" {
 DllExport PF_Err EffectMain(PF_Cmd cmd, PF_InData *in_data, PF_OutData *out_data,

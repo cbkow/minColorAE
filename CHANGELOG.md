@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.6 (unreleased)
+## 0.1.6 (2026-11-19)
 
 - **A new minColor Grade.** The controls a colourist knows from a dedicated
   grading application, handled the way they are there:
@@ -18,11 +18,14 @@
     resets. The wheels sit over ordinary sliders, so keyframes, expressions and
     presets work on the numbers.
   - It works in one wide-gamut log grading space whatever the comp's working
-    gamut. CPU and Metal; CUDA to follow.
+    gamut. CPU, Metal and CUDA.
 - **The first Grade is now minColor Grade (Legacy)**, under *minColor Legacy*.
   Projects and presets made with it load and render unchanged. On the Mac its
   file is now `minColor Grade Legacy.plugin` and `minColor Grade.plugin` is the
   new effect: replace the whole `minColor` plug-ins folder when updating.
+- Tested in After Effects 2027 (27.0) on macOS. The Windows build is checked
+  against the CPU by the test suite (CUDA included) but has not yet been run
+  inside After Effects.
 - **Menu names**: the wide-gamut camera space and its log curve are listed as
   *DWG* and *DWG Intermediate* in the Input and Working Gamut menus. Saved
   choices are unaffected.

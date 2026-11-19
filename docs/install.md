@@ -6,11 +6,23 @@ conveniences.
 | Part | macOS | Windows |
 | --- | --- | --- |
 | Effects | `/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/minColor/` (`.plugin` bundles) | `C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore\minColor\` (`.aex` files) |
-| Panel | `~/Library/Preferences/Adobe/After Effects/26.5/Scripts/ScriptUI Panels/minColor.jsx` | `%APPDATA%\Adobe\After Effects\26.5\Scripts\ScriptUI Panels\minColor.jsx` |
-| Presets | `~/Documents/Adobe/After Effects 2026/User Presets/minColor/` | `Documents\Adobe\After Effects 2026\User Presets\minColor\` |
+| Panel | `~/Library/Preferences/Adobe/After Effects/27.0/Scripts/ScriptUI Panels/minColor.jsx` | `%APPDATA%\Adobe\After Effects\27.0\Scripts\ScriptUI Panels\minColor.jsx` |
+| Presets | `~/Documents/Adobe/After Effects 2027/User Presets/minColor/` | `Documents\Adobe\After Effects 2027\User Presets\minColor\` |
 
-Tested with After Effects 2026 (26.5) on macOS (Apple silicon, Metal) and
-Windows (NVIDIA, CUDA). The effects run on the CPU everywhere else.
+The panel and preset folders carry After Effects' version: `27.0` and
+`After Effects 2027` above are those of After Effects 2027; for another version
+use its own (`26.5` and `After Effects 2026`, and so on).
+
+**Updating from 0.1.5 or earlier:** remove the old `minColor` effects folder
+before copying the new one. The first Grade's file was renamed (it is now
+*minColor Grade (Legacy)*), and the file with its old name is the new Grade.
+Projects and presets made with the first Grade keep working.
+
+Tested with After Effects 2027 (27.0) on macOS (Apple silicon, Metal). On
+Windows (NVIDIA, CUDA) this version is checked against the CPU by its test
+suite, and has not yet been run inside After Effects; versions up to 0.1.5 were
+tested there in After Effects 2026 (26.5). The effects run on the CPU everywhere
+else.
 
 ## After installing
 

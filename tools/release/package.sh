@@ -23,15 +23,15 @@ stage() {   # stage <platform> <dir> <install-table rows>
 
 M="$OUT/minColorAE-$V-macOS"
 stage macOS "$M" "| \`Plug-ins/minColor\` (the folder) | \`/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/\` |
-| \`ScriptUI Panels/minColor.jsx\` | \`~/Library/Preferences/Adobe/After Effects/26.5/Scripts/ScriptUI Panels/\` |
-| \`User Presets/minColor\` (the folder) | \`~/Documents/Adobe/After Effects 2026/User Presets/\` |"
+| \`ScriptUI Panels/minColor.jsx\` | \`~/Library/Preferences/Adobe/After Effects/27.0/Scripts/ScriptUI Panels/\` |
+| \`User Presets/minColor\` (the folder) | \`~/Documents/Adobe/After Effects 2027/User Presets/\` |"
 ditto "$MAC" "$M/Plug-ins/minColor"
 (cd "$OUT" && rm -f "minColorAE-$V-macOS.zip" && ditto -c -k --keepParent "minColorAE-$V-macOS" "minColorAE-$V-macOS.zip")
 
 W="$OUT/minColorAE-$V-Windows"
 stage Windows "$W" "| \`Plug-ins\\minColor\` (the folder) | \`C:\\Program Files\\Adobe\\Common\\Plug-ins\\7.0\\MediaCore\\\` (needs administrator) |
-| \`ScriptUI Panels\\minColor.jsx\` | \`%APPDATA%\\Adobe\\After Effects\\26.5\\Scripts\\ScriptUI Panels\\\` |
-| \`User Presets\\minColor\` (the folder) | \`Documents\\Adobe\\After Effects 2026\\User Presets\\\` |"
+| \`ScriptUI Panels\\minColor.jsx\` | \`%APPDATA%\\Adobe\\After Effects\\27.0\\Scripts\\ScriptUI Panels\\\` |
+| \`User Presets\\minColor\` (the folder) | \`Documents\\Adobe\\After Effects 2027\\User Presets\\\` |"
 cp "$WIN"/*.aex "$W/Plug-ins/minColor/"
 (cd "$OUT" && rm -f "minColorAE-$V-Windows.zip" && zip -qr "minColorAE-$V-Windows.zip" "minColorAE-$V-Windows")
 

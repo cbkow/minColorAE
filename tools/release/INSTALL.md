@@ -1,10 +1,14 @@
 # Installing minColorAE @VERSION@ (@PLATFORM@)
 
-Quit After Effects, then copy:
+Quit After Effects. If an earlier version is installed, remove its `minColor`
+effects folder first (a file was renamed in 0.1.6). Then copy:
 
 | From this folder | To |
 | --- | --- |
 @ROWS@
+
+The panel and preset folders above are After Effects 2027's; for another version
+use its own (`26.5` and `After Effects 2026`, and so on).
 
 Then start After Effects: the effects are under **Effect > minColor**, the panel is
 **Window > minColor.jsx**, and the presets are under **Effects & Presets >
