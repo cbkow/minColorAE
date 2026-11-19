@@ -17,3 +17,11 @@ Third-party content: the unmodified OpenDRT v1.1.0 DCTL (`upstream/`, GPL-3.0,
 Jed Smith), and code ported from darktable's AgX module (GPL-3.0-or-later) in
 `core/mincolor_agx.*` (2026-10-04, see CHANGES-AGX.md). See NOTICE. Nothing else from third parties is included; the
 Adobe After Effects SDK is a separate, external build dependency.
+
+The minColor Grade added in 0.1.6 (`core/mincolor_grade2.h`, the code's "Grade 2")
+is original to this repository and contains no third-party code. Its formulas
+and constants were fitted to measurements: renders of a grey ramp and a colour
+chart through a reference grading application, sampled in `tools/grade2_ref.txt`
+and checked by `tools/check_grade2`. The wide-gamut primaries and log curve it
+works in are published colour-space definitions. Its HSL key is the first
+Grade's (`core/opendrt_grade.h`).

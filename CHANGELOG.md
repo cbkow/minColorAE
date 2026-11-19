@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.1.6 (unreleased)
+
+- **A new minColor Grade.** The controls a colourist knows from a dedicated
+  grading application, handled the way they are there:
+  - **Primaries**: Lift, Gamma, Gain and Offset wheels, each with a master
+    strip, working on the log-encoded picture.
+  - **HDR**: Dark, Shadow, Light and Global wheels, with Black, Highlight and
+    Specular in More Zones. Each has exposure in stops, saturation and a colour
+    balance; a zone has a range and a falloff. Zones are soft and nested, and
+    they add.
+  - **Adjustments**: Temp, Tint, Hue, Contrast about a pivot, Black Offset.
+  - **HSL Secondary**: the key bars, eyedroppers, Key Blur and Show Mask of the
+    first Grade, with one correction wheel or three (Shadows, Midtones,
+    Highlights).
+  - Every control is a relative, geared drag; Shift drags finer, double-click
+    resets. The wheels sit over ordinary sliders, so keyframes, expressions and
+    presets work on the numbers.
+  - It works in one wide-gamut log grading space whatever the comp's working
+    gamut. CPU and Metal; CUDA to follow.
+- **The first Grade is now minColor Grade (Legacy)**, under *minColor Legacy*.
+  Projects and presets made with it load and render unchanged. On the Mac its
+  file is now `minColor Grade Legacy.plugin` and `minColor Grade.plugin` is the
+  new effect: replace the whole `minColor` plug-ins folder when updating.
+- **Menu names**: the wide-gamut camera space and its log curve are listed as
+  *DWG* and *DWG Intermediate* in the Input and Working Gamut menus. Saved
+  choices are unaffected.
+
 ## 0.1.5 (2026-10-29)
 
 - **Alpha fixed**: anti-aliased edges, feathered masks, faded layers and every

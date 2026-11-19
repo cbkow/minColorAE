@@ -31,7 +31,7 @@ add a picture formation (AgX) or a highlight knee only when you ask for one.
 | --- | --- |
 | **minColor Input** | What a file is (camera logs, display encodings, linear), into the comp's working space. |
 | **minColor Output** | Encodes for a display or a delivery: a pure conversion, no tonescale. |
-| **minColor Grade** | Zone-based colour correction for linear light, with wheels and an HSL secondary. |
+| **minColor Grade** | Colour correction for linear light: Primaries wheels, HDR zone wheels and an HSL secondary. |
 | **minColor Knee** | A BT.2390 highlight knee for HDR content heading somewhere dimmer. |
 | **minColor AgX** | Parametric, HDR-capable AgX; Blender-compatible at its defaults. |
 | **minColor macOS Fix** | Corrects After Effects' viewer on a Mac when not using OCIO. |
@@ -51,7 +51,7 @@ and [PROVENANCE.md](PROVENANCE.md):
   [OpenDRT](https://github.com/jedypod/open-display-transform) v1.1.0 by Jed Smith
   (GPL-3.0), modified; see [CHANGES-FROM-OPENDRT.md](CHANGES-FROM-OPENDRT.md). The
   effects use its gamut matrices, transfer functions and, for the Input's inverse
-  transfers and the Grade's zones, its rendering; its looks and tonescale presets
+  transfers, the Legacy Grade's zones and both Grades' HSL key, its rendering; its looks and tonescale presets
   are not offered. The unmodified DCTL is kept in `upstream/` as the test reference.
 - minColor AgX ports parts of darktable's AgX module by István Kovács and the
   darktable developers (GPL-3.0-or-later); see [CHANGES-AGX.md](CHANGES-AGX.md).

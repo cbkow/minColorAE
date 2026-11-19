@@ -34,7 +34,8 @@ minColor AgX at its defaults.*
 | --- | --- |
 | [minColor Input](effects/input.md) | Says what a file is (gamut, transfer, range) and brings it into the comp's linear working space. |
 | [minColor Output](effects/output.md) | Encodes for a display or a delivery: a pure conversion, no tonescale. |
-| [minColor Grade](effects/grade.md) | Exposure, contrast, six luminance zones with colour wheels, and an HSL secondary. |
+| [minColor Grade](effects/grade.md) | Colour correction with Primaries wheels, HDR zone wheels and an HSL secondary. |
 | [minColor Knee](effects/knee.md) | Rolls off highlights brighter than where they are going (HDR into SDR). |
 | [minColor AgX](effects/agx.md) | AgX picture formation, parametric and HDR-capable; Blender-compatible at its defaults. |
 | [minColor macOS Fix](effects/macos-fix.md) | Corrects After Effects' viewer on a Mac when you are not using OCIO. |
+| [minColor Grade (Legacy)](effects/grade-legacy.md) | The first Grade, under *minColor Legacy*: for projects made before 0.1.6. |
