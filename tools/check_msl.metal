@@ -12,6 +12,7 @@ using namespace metal;
 #include "opendrt_params.h"
 #include "opendrt_kernel.h"
 #include "opendrt_grade.h"
+#include "mincolor_grade2.h"
 #include "mincolor_knee.h"
 #include "mincolor_agx.h"
 
@@ -24,6 +25,16 @@ kernel void drt_check_grade(texture2d<float, access::read>  src [[texture(0)]],
     if (gid.x >= dst.get_width() || gid.y >= dst.get_height()) return;
     const float4 c = src.read(gid);
     dst.write(float4(drt_grade(g, p, c.rgb), c.a), gid);
+}
+
+kernel void drt_check_grade2(texture2d<float, access::read>  src [[texture(0)]],
+                             texture2d<float, access::write> dst [[texture(1)]],
+                             constant DrtGrade2Params &g         [[buffer(0)]],
+                             uint2 gid                           [[thread_position_in_grid]])
+{
+    if (gid.x >= dst.get_width() || gid.y >= dst.get_height()) return;
+    const float4 c = src.read(gid);
+    dst.write(float4(drt_grade2_keyed(g, drt_grade2(g, c.rgb), c.a), c.a), gid);
 }
 
 kernel void drt_check_apply(texture2d<float, access::read>  src [[texture(0)]],

@@ -7,7 +7,7 @@ it from the file extension.
 <img src="../images/ec_input.png" width="430" alt="minColor Input controls">
 
 - **Input Gamut** and **Input Transfer**: what the file is. Camera spaces (ARRI,
-  RED, Sony, Panasonic, DaVinci, FilmLight and more, with their log curves), the
+  RED, Sony, Panasonic, DWG, FilmLight and more, with their log curves), the
   linear spaces, and the display encodings deliveries come in: Rec.1886 (2.4
   power), sRGB, 2.2 power, BT.709 camera, PQ and HLG.
 - **Working Gamut**: the comp's working space, ACEScg by default. In an OCIO

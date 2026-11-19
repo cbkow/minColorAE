@@ -12,8 +12,8 @@
 resource 'PiPL' (16000) {
 	{
 		Kind { AEEffect },
-		Name { "minColor Grade" },
-		Category { "minColor" },
+		Name { "minColor Grade (Legacy)" },   /* shown name only; the match name below is what projects use */
+		Category { "minColor Legacy" },
 #ifdef AE_OS_WIN
     #if defined(AE_PROC_INTELx64)
 		CodeWin64X86 {"EffectMain"},

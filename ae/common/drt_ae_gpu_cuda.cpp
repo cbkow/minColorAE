@@ -26,6 +26,8 @@ const int kRole = DRT_CUDA_GRADE;
 const int kRole = DRT_CUDA_MACFIX;
 #elif DRT_ROLE_KNEE
 const int kRole = DRT_CUDA_KNEE;
+#elif DRT_ROLE_GRADE2
+const int kRole = DRT_CUDA_GRADE2;
 #else
 const int kRole = DRT_CUDA_AGX;
 #endif
@@ -60,9 +62,9 @@ PF_Err renderGPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
     const int e = (p->blurRx > 0 || p->blurRy > 0)
         ? drtCudaRenderKeyBlur(srcMem, dstMem, int(in->rowbytes / 16), int(out->rowbytes / 16), int(in->width), int(in->height),
                                std::min(int(out->width), int(in->width) - p->offX), std::min(int(out->height), int(in->height) - p->offY),
-                               p->offX, p->offY, &p->d, &p->g, p->blurRx, p->blurRy, dev.command_queuePV)
+                               p->offX, p->offY, kRole, &p->d, &p->g, &p->q, p->blurRx, p->blurRy, dev.command_queuePV)
         : drtCudaRender(srcMem, dstMem, int(in->rowbytes / 16), int(out->rowbytes / 16), int(in->width), int(in->height),
-                        kRole, &p->d, &p->g, &p->a, dev.command_queuePV);
+                        kRole, &p->d, &p->g, &p->a, &p->q, dev.command_queuePV);
     if (e) {
         dlog("CUDA render failed: %s", drtCudaErrorString(e));
         return PF_Err_INTERNAL_STRUCT_DAMAGED;

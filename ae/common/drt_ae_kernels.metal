@@ -143,6 +143,51 @@ kernel void drt_knee_kernel(const device float4     *src [[buffer(0)]],
     dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
 }
 
+/* Grade 2. Its secondary's key is the first Grade's, so it carries that block too, at buffer(4)
+   where the key kernels expect it; its own block sits at buffer(7). With a key blur the host
+   runs drt_grade_key_kernel and drt_key_blur_kernel as for the first Grade, then the keyed
+   kernel below. */
+kernel void drt_grade2_kernel(const device float4      *src [[buffer(0)]],
+                              device float4            *dst [[buffer(1)]],
+                              constant DrtParams       &p   [[buffer(2)]],
+                              constant DrtAeHeader     &h   [[buffer(3)]],
+                              constant DrtGradeParams  &g   [[buffer(4)]],
+                              constant DrtGrade2Params &q   [[buffer(7)]],
+                              uint2 xy                      [[thread_position_in_grid]])
+{
+    if (xy.x >= uint(h.width) || xy.y >= uint(h.height)) return;
+    float4 px = src[xy.y * h.srcPitch + xy.x];
+    const float a = px.w;
+    float3 rgb = float3(px.z, px.y, px.x);
+    rgb = drt_grade2_keyed(q, rgb, drt_grade_key(g, p, rgb));
+    dst[xy.y * h.dstPitch + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
+}
+
+struct DrtKeyedHeader2 {   /* DrtKeyedHeader, declared further down with the first Grade's passes */
+    int keyWidth;
+    int offX;
+    int offY;
+    int pad;
+};
+
+/* h.width / height are the OUTPUT's; it sits at (offX, offY) inside the input and its key */
+kernel void drt_grade2_keyed_kernel(const device float4      *src [[buffer(0)]],
+                                    device float4            *dst [[buffer(1)]],
+                                    constant DrtAeHeader     &h   [[buffer(3)]],
+                                    const device float       *key [[buffer(5)]],
+                                    constant DrtKeyedHeader2 &k   [[buffer(6)]],
+                                    constant DrtGrade2Params &q   [[buffer(7)]],
+                                    uint2 xy                      [[thread_position_in_grid]])
+{
+    if (xy.x >= uint(h.width) || xy.y >= uint(h.height)) return;
+    const uint ix = xy.x + uint(k.offX), iy = xy.y + uint(k.offY);
+    float4 px = src[iy * uint(h.srcPitch) + ix];
+    const float a = px.w;
+    float3 rgb = float3(px.z, px.y, px.x);
+    rgb = drt_grade2_keyed(q, rgb, key[iy * uint(k.keyWidth) + ix]);
+    dst[xy.y * uint(h.dstPitch) + xy.x] = float4(rgb.z, rgb.y, rgb.x, a);
+}
+
 kernel void drt_agx_kernel(const device float4     *src [[buffer(0)]],
                            device float4           *dst [[buffer(1)]],
                            constant DrtParams      &p   [[buffer(2)]],

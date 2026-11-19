@@ -61,7 +61,8 @@ enum Kind {
     kPresetDisplay,
     kPresetRender,   /* retired with the Render block (2026-10-04); no row uses it */
     kTopicOpen,      /* group start that opens expanded */
-    kWheels,         /* Grade: a custom-UI row of colour wheels, three to a line; choices = first wheel (ae/common/drt_ae_wheels.h) */
+    kWheels,         /* Grade: a custom-UI row of colour wheels, three to a line; choices = first wheel (ae/common/drt_ae_wheels.h).
+                        Grade 2: four to a line; choices = which row (ae/common/drt_ae_wheels2.h) */
     kColorPick,      /* Grade: a colour row whose eyedropper drives the HSL secondary; choices = 0 set, 1 add, 2 remove */
     kKeyBars,        /* Grade: a custom-UI row, the secondary's H / S / L key bars (ae/common/drt_ae_keybars.h) */
 };
@@ -81,6 +82,7 @@ struct Row {
     int         id;          /* AE parameter id; 0 = auto (see the header comment) */
     float       slo, shi;    /* floats: the slider's drag range when narrower than lo..hi (0, 0 = lo..hi) */
     float drt::DrtAgxParams::*af;     /* AgX effect: rows bound to the AgX block (popups too: the block is all floats) */
+    float drt::DrtGrade2Params::*qf;  /* Grade 2 effect: rows bound to its block */
 };
 
 #define DRT_F(field, label, lo, hi, prec) { kFloat, label, &drt::DrtParams::field, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0 }
@@ -115,6 +117,11 @@ struct Row {
 #define DRT_AF(field, label, lo, hi, prec) { kFloat, label, nullptr, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0, 0, 0, &drt::DrtAgxParams::field }
 #define DRT_AFS(field, label, lo, hi, slo, shi, prec) { kFloat, label, nullptr, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0, slo, shi, &drt::DrtAgxParams::field }
 #define DRT_APM(field, label, str, n, map) { kPopup, label, nullptr, nullptr, nullptr, nullptr, 0, 0, 0, str, n, map, 0, 0, 0, &drt::DrtAgxParams::field }
+
+/* Grade 2 block bindings */
+#define DRT_QF(field, label, lo, hi, prec) { kFloat, label, nullptr, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0, 0, 0, nullptr, &drt::DrtGrade2Params::field }
+#define DRT_QP(field, label, str, n) { kPopup, label, nullptr, nullptr, nullptr, nullptr, 0, 0, 0, str, n, nullptr, 0, 0, 0, nullptr, &drt::DrtGrade2Params::field }
+#define DRT_QFS(field, label, lo, hi, slo, shi, prec) { kFloat, label, nullptr, nullptr, nullptr, nullptr, lo, hi, prec, nullptr, 0, nullptr, 0, slo, shi, nullptr, &drt::DrtGrade2Params::field }
 
 /* Popup strings. Built once from the core's name tables so the lists can never
    disagree with the kernel's indices. */
@@ -418,5 +425,108 @@ static const Row kAgxRows[] = {
     DRT_E(),
 };
 static const int kAgxRowCount = int(sizeof(kAgxRows) / sizeof(kAgxRows[0]));
+
+/* --------------------------------------------------------------- Grade 2 */
+/* core/mincolor_grade2.h: the reference grading application's Primaries and HDR palettes, by measurement. Every
+   control carries the reference's own units and neutral value (Lift 0, Gamma 0, Gain 1, Offset 25;
+   zone Range in stops over grey, Falloff as the reference shows it), so a number read off the reference can
+   be typed here. Valid ranges are wide for typing; the drag ranges are the part a grade uses.
+   The balance (X / Y) stops at 0.19, where the reference's own fields stop. A new table (nothing has
+   shipped with it): auto ids from 1, in this order; once it ships, add rows with explicit ids. */
+#define DRT_G2_PRIM_ROWS(name, f, lo, hi, slo, shi) \
+    DRT_QFS(f##_r, name " R", lo, hi, slo, shi, 2), \
+    DRT_QFS(f##_g, name " G", lo, hi, slo, shi, 2), \
+    DRT_QFS(f##_b, name " B", lo, hi, slo, shi, 2)
+#define DRT_G2_ZONE_ROWS(z, name) \
+    DRT_QFS(z##_exp,     name " Exposure",   -8.0f,  8.0f, -4.0f, 4.0f, 2), \
+    DRT_QFS(z##_sat,     name " Saturation",  0.0f,  4.0f,  0.0f, 2.0f, 2), \
+    DRT_QF(z##_x,        name " X",          -0.19f, 0.19f, 3), \
+    DRT_QF(z##_y,        name " Y",          -0.19f, 0.19f, 3), \
+    DRT_QF(z##_range,    name " Range (stops)", -8.0f, 8.0f, 2), \
+    DRT_QF(z##_falloff,  name " Falloff",     0.0f,  1.0f, 2)
+static const Row kGrade2Rows[] = {
+    DRT_PM(working_gamut, "Working Gamut", nullptr, 0, kWorkingGamutMap),
+
+    /* Each wheel row is pure UI over the sliders in the twirl under it (ae/common/drt_ae_wheels2.h);
+       choices = which row: 0 Primaries, 1 HDR, 2 More Zones, 3 the secondary's. */
+    DRT_WHEELS("Primaries", 0, 0),
+    DRT_T("Primaries Values"),
+    DRT_G2_PRIM_ROWS("Lift",   lift,   -1.0f,   1.0f,  -0.25f,  0.25f),
+    DRT_G2_PRIM_ROWS("Gamma",  gamma,  -0.2f,   4.0f,  -0.2f,   0.5f),    /* the exponent is 1 / (1 + 4 Gamma): -0.25 is its pole */
+    DRT_G2_PRIM_ROWS("Gain",   gain,    0.0f,  16.0f,   0.0f,   2.0f),
+    DRT_G2_PRIM_ROWS("Offset", offset, -75.0f, 125.0f,  0.0f,  50.0f),
+    DRT_E(),
+
+    DRT_WHEELS("HDR", 1, 0),
+    DRT_T("HDR Values"),
+    DRT_G2_ZONE_ROWS(z1, "Dark"),
+    DRT_G2_ZONE_ROWS(z2, "Shadow"),
+    DRT_G2_ZONE_ROWS(z3, "Light"),
+    DRT_QFS(g_exp, "Global Exposure",   -8.0f, 8.0f, -4.0f, 4.0f, 2),
+    DRT_QFS(g_sat, "Global Saturation",  0.0f, 4.0f,  0.0f, 2.0f, 2),
+    DRT_QF(g_x,    "Global X",          -0.19f, 0.19f, 3),
+    DRT_QF(g_y,    "Global Y",          -0.19f, 0.19f, 3),
+    DRT_E(),
+    DRT_T("More Zones"),
+    DRT_WHEELS("More Zones Wheels", 2, 0),
+    DRT_G2_ZONE_ROWS(z0, "Black"),
+    DRT_G2_ZONE_ROWS(z4, "Highlight"),
+    DRT_G2_ZONE_ROWS(z5, "Specular"),
+    DRT_E(),
+
+    { kTopicOpen, "Adjustments", nullptr, nullptr, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0 },
+    DRT_QFS(temp,     "Temp",          -4000.0f, 4000.0f, -2000.0f, 2000.0f, 0),
+    DRT_QFS(tint,     "Tint",           -100.0f,  100.0f,   -50.0f,   50.0f, 1),
+    DRT_QFS(hue,      "Hue",            -100.0f,  100.0f,   -30.0f,   30.0f, 1),
+    DRT_QF(contrast,  "Contrast",          0.0f,    2.0f, 3),
+    DRT_QFS(pivot,    "Pivot (stops)",    -8.0f,    8.0f,    -4.0f,    4.0f, 2),
+    DRT_QFS(blk,      "Black Offset",     -1.0f,    1.0f,    -0.5f,    0.5f, 3),
+    DRT_E(),
+
+    /* The HSL secondary. Its key is the first Grade's, rows and all (bound to the DrtGradeParams the
+       effect carries for it): eyedroppers, the H / S / L bars with their numbers in a twirl, Key Blur,
+       Show Mask. Its correction is Grade 2's own: one HDR-style wheel, or three sharing the key by
+       brightness (Lumetri's two layouts), chosen by Correction Wheels. */
+    DRT_T("HSL Secondary"),
+    DRT_GC(sec_enable,    "Enable Secondary"),
+    DRT_PICK("Set Colour",        0, 0),
+    DRT_PICK("Add to Range",      1, 0),
+    DRT_PICK("Remove from Range", 2, 0),
+    DRT_KEYBARS("Key", 0),
+    DRT_T("Key Values"),
+    DRT_GF(sec_hue,       "Hue Centre",        0.0f, 360.0f, 0),
+    DRT_GF(sec_hue_width, "Hue Width",         0.0f, 360.0f, 0),
+    DRT_GF(sec_sat_min,   "Saturation Min",    0.0f,   2.0f, 2),
+    DRT_GF(sec_sat_max,   "Saturation Max",    0.0f,   2.0f, 2),
+    DRT_GF(sec_lev_min,   "Level Min (stops)",   -10.0f, 10.0f, 2),
+    DRT_GF(sec_lev_max,   "Level Max (stops)",   -10.0f, 10.0f, 2),
+    DRT_GF(sec_hue_soft,  "Hue Softness",        0.0f, 180.0f, 1),
+    DRT_GF(sec_sat_soft,  "Saturation Softness", 0.0f,   1.0f, 3),
+    DRT_GF(sec_lev_soft,  "Level Softness (stops)", 0.0f, 6.0f, 2),
+    DRT_GC(sec_hue_on,    "Use Hue"),          /* drawn as the bars' check boxes (rowHidden) */
+    DRT_GC(sec_sat_on,    "Use Saturation"),
+    DRT_GC(sec_lev_on,    "Use Level"),
+    DRT_E(),
+    DRT_GF(sec_blur,      "Key Blur (px)",       0.0f, 100.0f, 1),
+    DRT_GC(sec_show_mask, "Show Mask"),
+    DRT_QP(sec_three,     "Correction Wheels", "One Wheel|Three Wheels", 2),   /* three: Shadows, Midtones, Highlights */
+    DRT_WHEELS("Secondary Wheels", 3, 0),
+    DRT_T("Secondary Values"),
+    DRT_QFS(s1_exp, "Secondary Exposure",    -8.0f,  8.0f, -4.0f, 4.0f, 2),   /* the one wheel, and Midtones of the three */
+    DRT_QFS(s1_sat, "Secondary Saturation",   0.0f,  4.0f,  0.0f, 2.0f, 2),
+    DRT_QF(s1_x,    "Secondary X",           -0.19f, 0.19f, 3),
+    DRT_QF(s1_y,    "Secondary Y",           -0.19f, 0.19f, 3),
+    DRT_QFS(s0_exp, "Sec Shadows Exposure",  -8.0f,  8.0f, -4.0f, 4.0f, 2),
+    DRT_QFS(s0_sat, "Sec Shadows Saturation", 0.0f,  4.0f,  0.0f, 2.0f, 2),
+    DRT_QF(s0_x,    "Sec Shadows X",         -0.19f, 0.19f, 3),
+    DRT_QF(s0_y,    "Sec Shadows Y",         -0.19f, 0.19f, 3),
+    DRT_QFS(s2_exp, "Sec Highlights Exposure", -8.0f, 8.0f, -4.0f, 4.0f, 2),
+    DRT_QFS(s2_sat, "Sec Highlights Saturation", 0.0f, 4.0f, 0.0f, 2.0f, 2),
+    DRT_QF(s2_x,    "Sec Highlights X",      -0.19f, 0.19f, 3),
+    DRT_QF(s2_y,    "Sec Highlights Y",      -0.19f, 0.19f, 3),
+    DRT_E(),
+    DRT_E(),
+};
+static const int kGrade2RowCount = int(sizeof(kGrade2Rows) / sizeof(kGrade2Rows[0]));
 
 } // namespace drtae

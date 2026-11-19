@@ -5,16 +5,16 @@
  * or core types cross it. Used by drt_ae_gpu_cuda.cpp and tools/check_cuda.cpp. */
 #pragma once
 
-enum { DRT_CUDA_OUTPUT, DRT_CUDA_INPUT, DRT_CUDA_GRADE, DRT_CUDA_MACFIX, DRT_CUDA_KNEE, DRT_CUDA_AGX };
+enum { DRT_CUDA_OUTPUT, DRT_CUDA_INPUT, DRT_CUDA_GRADE, DRT_CUDA_MACFIX, DRT_CUDA_KNEE, DRT_CUDA_AGX, DRT_CUDA_GRADE2 };
 
-/* float4 BGRA worlds in device memory, pitch in pixels; params / grade / agx point at a
-   derived drt::DrtParams / DrtGradeParams / DrtAgxParams. Runs on `stream` (a CUstream /
+/* float4 BGRA worlds in device memory, pitch in pixels; params / grade / agx / grade2 point at a
+   derived drt::DrtParams / DrtGradeParams / DrtAgxParams / DrtGrade2Params. Runs on `stream` (a CUstream /
    cudaStream_t, null = default) and waits for it. Returns a cudaError_t, 0 = success. */
 int drtCudaRender(const void *src, void *dst, int srcPitch, int dstPitch, int width, int height,
-                  int role, const void *params, const void *grade, const void *agx, void *stream);
-/* The Grade with its key blurred (radius in pixels per axis), same stream. width / height are the
+                  int role, const void *params, const void *grade, const void *agx, const void *grade2, void *stream);
+/* The Grade or Grade 2 (role) with its key blurred (radius in pixels per axis), same stream. width / height are the
    input world's; the output is outWidth x outHeight at (offX, offY) inside it. */
 int drtCudaRenderKeyBlur(const void *src, void *dst, int srcPitch, int dstPitch, int width, int height,
                          int outWidth, int outHeight, int offX, int offY,
-                         const void *params, const void *grade, int radiusX, int radiusY, void *stream);
+                         int role, const void *params, const void *grade, const void *grade2, int radiusX, int radiusY, void *stream);
 const char *drtCudaErrorString(int e);

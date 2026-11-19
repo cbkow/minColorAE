@@ -4,7 +4,7 @@
 /* minColor AE — the Metal backend (macOS). The kernels are the embedded Metal source
  * (prefix + core shim + params + kernel + drt_ae_kernels.metal), compiled once per
  * device. AE's GPU worlds are MTLBuffers; the DrtParams block goes at buffer(2), the
- * header at buffer(3), Grade's or AgX's own block at buffer(4).
+ * header at buffer(3), Grade's or AgX's own block at buffer(4); Grade 2 has the Grade's there (its key) and its own at buffer(7).
  */
 #include "drt_ae_common.h"
 
@@ -69,9 +69,13 @@ PF_Err gpuDeviceSetup(PF_InData *in_data, PF_OutData *out_data, PF_GPUDeviceSetu
             return PF_Err_INTERNAL_STRUCT_DAMAGED;
         }
         id<MTLComputePipelineState> keyPso = nil, blurPso = nil, keyedPso = nil;
-#if DRT_ROLE_GRADE
+#if DRT_HAS_KEY
         for (int k = 0; k < 3; ++k) {
+#if DRT_ROLE_GRADE2
+            NSString *name = k == 0 ? @"drt_grade_key_kernel" : (k == 1 ? @"drt_key_blur_kernel" : @"drt_grade2_keyed_kernel");
+#else
             NSString *name = k == 0 ? @"drt_grade_key_kernel" : (k == 1 ? @"drt_key_blur_kernel" : @"drt_grade_keyed_kernel");
+#endif
             id<MTLFunction> f = [[lib newFunctionWithName:name] autorelease];
             id<MTLComputePipelineState> s = f ? [device newComputePipelineStateWithFunction:f error:&error] : nil;
             if (!s) { dlog("pipeline %s failed", [name UTF8String]); [pso release]; [keyPso release]; [blurPso release]; return PF_Err_INTERNAL_STRUCT_DAMAGED; }
@@ -133,6 +137,10 @@ PF_Err renderGPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
         h.height = in->height;
         id<MTLBuffer> pbuf = [[device newBufferWithBytes:&p->d length:sizeof(drt::DrtParams) options:MTLResourceStorageModeShared] autorelease];
         id<MTLBuffer> hbuf = [[device newBufferWithBytes:&h length:sizeof h options:MTLResourceStorageModeShared] autorelease];
+#if DRT_ROLE_GRADE2
+        /* Grade 2 keeps the first Grade's block at buffer(4) for the key and its own at buffer(7) */
+        id<MTLBuffer> qbuf = [[device newBufferWithBytes:&p->q length:sizeof(drt::DrtGrade2Params) options:MTLResourceStorageModeShared] autorelease];
+#endif
 #if DRT_ROLE_AGX
         id<MTLBuffer> gbuf = [[device newBufferWithBytes:&p->a length:sizeof(drt::DrtAgxParams) options:MTLResourceStorageModeShared] autorelease];   /* the AgX block at buffer(4) */
 #else
@@ -141,7 +149,7 @@ PF_Err renderGPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
 
         id<MTLCommandBuffer> cb = [queue commandBuffer];
         id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
-#if DRT_ROLE_GRADE
+#if DRT_HAS_KEY
         if ((p->blurRx > 0 || p->blurRy > 0) && md->key && md->blur && md->keyed) {
             /* key -> across -> down -> graded, all on this command buffer */
             const NSUInteger n = NSUInteger(in->width) * NSUInteger(in->height) * sizeof(float);
@@ -175,6 +183,9 @@ PF_Err renderGPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
             [enc setBuffer:gbuf offset:0 atIndex:4];
             [enc setBuffer:k0 offset:0 atIndex:5];
             [enc setBytes:&kh length:sizeof kh atIndex:6];
+#if DRT_ROLE_GRADE2
+            [enc setBuffer:qbuf offset:0 atIndex:7];
+#endif
             [enc dispatchThreadgroups:MTLSizeMake((oh.width + 15) / 16, (oh.height + 15) / 16, 1) threadsPerThreadgroup:tg];
             [enc endEncoding];
             [cb commit];
@@ -188,6 +199,9 @@ PF_Err renderGPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
         [enc setBuffer:pbuf offset:0 atIndex:2];
         [enc setBuffer:hbuf offset:0 atIndex:3];
         [enc setBuffer:gbuf offset:0 atIndex:4];
+#if DRT_ROLE_GRADE2
+        [enc setBuffer:qbuf offset:0 atIndex:7];
+#endif
         const NSUInteger tw = [md->pipeline threadExecutionWidth];
         [enc dispatchThreadgroups:MTLSizeMake((in->width + tw - 1) / tw, (in->height + 15) / 16, 1)
             threadsPerThreadgroup:MTLSizeMake(tw, 16, 1)];

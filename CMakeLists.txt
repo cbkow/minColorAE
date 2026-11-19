@@ -40,7 +40,7 @@ add_library(dctl_ref STATIC tools/dctl_ref.cpp)
 target_include_directories(dctl_ref
   PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/tools
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/upstream)
-# The DCTL is written for Resolve's compiler; keep our warnings out of it.
+# The DCTL is written for its host's compiler; keep our warnings out of it.
 if(NOT MSVC)
   target_compile_options(dctl_ref PRIVATE -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-parameter)
 endif()
@@ -49,6 +49,10 @@ endif()
 add_executable(probe_core tools/probe_core.cpp)
 target_link_libraries(probe_core PRIVATE drt_core dctl_ref)
 
+# the Grade 2 core against sampled the reference grading application renders (tools/grade2_ref.txt)
+add_executable(check_grade2 tools/check_grade2.cpp)
+target_link_libraries(check_grade2 PRIVATE drt_core)
+
 add_executable(dump_presets tools/dump_presets.cpp)
 target_link_libraries(dump_presets PRIVATE drt_core)
 add_executable(make_ocio tools/make_ocio.cpp)
@@ -56,6 +60,7 @@ target_link_libraries(make_ocio PRIVATE drt_core)
 
 enable_testing()
 add_test(NAME probe_core COMMAND probe_core)
+add_test(NAME check_grade2 COMMAND check_grade2 ${CMAKE_CURRENT_SOURCE_DIR}/tools/grade2_ref.txt)
 # ocio/mincolor.ocio is generated from the core: fail when the committed copy is stale
 add_test(NAME ocio_current
          COMMAND ${CMAKE_COMMAND} -DGEN=$<TARGET_FILE:make_ocio> -DOUT=${CMAKE_CURRENT_BINARY_DIR}/mincolor.ocio
@@ -93,7 +98,7 @@ if(APPLE)
         OUTPUT ${MSL_AIR}
         COMMAND ${XCRUN} -sdk macosx metal -c ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_msl.metal
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/core -o ${MSL_AIR}
-        DEPENDS tools/check_msl.metal core/opendrt_shim_msl.h core/opendrt_params.h core/opendrt_kernel.h core/mincolor_knee.h core/mincolor_agx.h
+        DEPENDS tools/check_msl.metal core/opendrt_shim_msl.h core/opendrt_params.h core/opendrt_kernel.h core/mincolor_grade2.h core/mincolor_knee.h core/mincolor_agx.h
         COMMENT "Compiling the core as Metal (dialect check)")
       add_custom_target(check_msl ALL DEPENDS ${MSL_AIR})
       add_test(NAME check_msl COMMAND ${XCRUN} -sdk macosx metal -c ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_msl.metal

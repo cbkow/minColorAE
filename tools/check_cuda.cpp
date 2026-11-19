@@ -25,7 +25,7 @@
 
 namespace {
 
-struct Case { const char *name; int role; drt::DrtParams d; drt::DrtGradeParams g; drt::DrtAgxParams a; double tol = 2e-4; bool forward = false; drt::DrtParams fwd{}; };
+struct Case { const char *name; int role; drt::DrtParams d; drt::DrtGradeParams g; drt::DrtAgxParams a; double tol = 2e-4; bool forward = false; drt::DrtParams fwd{}; drt::DrtGrade2Params q = drt::drt_grade2_defaults(); };
 
 drt::float3 cpu(const Case &c, drt::float3 v)
 {
@@ -33,6 +33,7 @@ drt::float3 cpu(const Case &c, drt::float3 v)
     case DRT_CUDA_OUTPUT: return drt::drt_transform(c.d, v);
     case DRT_CUDA_INPUT:  return drt::drt_input_transform(c.d, v);
     case DRT_CUDA_GRADE:  return drt::drt_grade(c.g, c.d, v);
+    case DRT_CUDA_GRADE2: return drt::drt_grade2(c.q, v);
     case DRT_CUDA_MACFIX: return drt::drt_macos_fix(v);
     case DRT_CUDA_KNEE:   return drt::drt_knee(c.d, v);
     default:              return drt::drt_agx(c.a, v);
@@ -50,12 +51,13 @@ Case base(const char *name, int role)
 Case finish(Case c)
 {
     if (c.role == DRT_CUDA_INPUT) drt::drt_inverse_display(c.d);
-    if (c.role == DRT_CUDA_GRADE) { c.d.in_gamut = c.d.working_gamut; c.d.in_oetf = DRT_OETF_LINEAR; }
+    if (c.role == DRT_CUDA_GRADE || c.role == DRT_CUDA_GRADE2) { c.d.in_gamut = c.d.working_gamut; c.d.in_oetf = DRT_OETF_LINEAR; }
     if (c.role == DRT_CUDA_OUTPUT) c.d.working_gamut = c.d.in_gamut;
     c.d = drt::drt_derive(c.d);
-    if (c.role == DRT_CUDA_GRADE) c.g = drt::drt_grade_derive(c.g, c.d);
+    if (c.role == DRT_CUDA_GRADE || c.role == DRT_CUDA_GRADE2) c.g = drt::drt_grade_derive(c.g, c.d);   /* Grade 2's key is the Grade's */
     if (c.role == DRT_CUDA_KNEE) c.d = drt::drt_knee_derive(c.d);
     c.a = drt::drt_agx_derive(c.a);
+    c.q = drt::drt_grade2_derive(c.q, c.d);
     return c;
 }
 
@@ -86,6 +88,8 @@ int main()
     { Case c = base("grade", DRT_CUDA_GRADE); c.g.exposure = 0.4f; c.g.z1_exposure = -0.5f; c.g.z4_saturation = 1.3f; c.g.z3_tint = 0.3f; cases.push_back(finish(c)); }
     { Case c = base("macOS fix", DRT_CUDA_MACFIX); c.tol = 1e-3; cases.push_back(finish(c)); }
     { Case c = base("knee, 1000 -> 100 auto", DRT_CUDA_KNEE); cases.push_back(finish(c)); }
+    { Case c = base("grade 2, HDR wheels", DRT_CUDA_GRADE2); c.q.g_exp = 0.4f; c.q.z2_exp = -0.5f; c.q.z3_sat = 1.3f; c.q.z1_x = 0.03f; c.q.g_y = -0.02f; c.q.contrast = 1.15f; c.q.temp = 400.0f; c.q.blk = 0.05f; cases.push_back(finish(c)); }
+    { Case c = base("grade 2, Primaries", DRT_CUDA_GRADE2); c.q.lift_r = 0.02f; c.q.gamma_g = 0.05f; c.q.gain_b = 1.2f; c.q.offset_r = 27.0f; cases.push_back(finish(c)); }
     { Case c = base("agx, SDR", DRT_CUDA_AGX); cases.push_back(finish(c)); }
     { Case c = base("agx, Peak 1000, Rec.2020 / P3", DRT_CUDA_AGX); c.a.peak = 1000.0f; c.a.working_gamut = DRT_IN_REC2020; c.a.target = 2.0f; cases.push_back(finish(c)); }
 
@@ -111,7 +115,7 @@ int main()
                 host[i] = r.z; host[i + 1] = r.y; host[i + 2] = r.x;
             }
         cudaMemcpy(dsrc, host.data(), host.size() * 4, cudaMemcpyHostToDevice);
-        const int e = drtCudaRender(dsrc, ddst, W, W, W, H, c.role, &c.d, &c.g, &c.a, nullptr);
+        const int e = drtCudaRender(dsrc, ddst, W, W, W, H, c.role, &c.d, &c.g, &c.a, &c.q, nullptr);
         if (e) { std::printf("%-34s CUDA error: %s\n", c.name, drtCudaErrorString(e)); good = false; continue; }
         cudaMemcpy(back.data(), ddst, back.size() * 4, cudaMemcpyDeviceToHost);
         double worst = 0.0; int wx = 0, wy = 0; float wg[3] = {0, 0, 0}, wr[3] = {0, 0, 0};

@@ -3,7 +3,7 @@
  * Derived from OpenDRT v1.1.0 by Jed Smith (https://github.com/jedypod/open-display-transform), GPLv3;
  * modified 2026-09-30 to 2026-10-04, see CHANGES-FROM-OPENDRT.md. Not affiliated with or endorsed by OpenDRT.
  */
-/* Emulates enough of Resolve's DCTL environment to compile the UNTOUCHED upstream
+/* Emulates enough of the DCTL host environment to compile the UNTOUCHED upstream
  * OpenDRT_v1.1.0.dctl as C++. Included after opendrt_shim_cpp.h, inside a private
  * namespace, by dctl_ref.cpp. Nothing here is used by the core.
  *

@@ -292,7 +292,7 @@ __DEVICE__ float3 drt_linearize(float3 rgb, int tf) {
     rgb = drt_eotf_pq(rgb, 0)*100.0f;
   } else if (tf == 15) { /* HLG 1000 nits, 100 nits = 1.0 */
     rgb = drt_eotf_hlg(rgb, 0)*10.0f;
-  } else if (tf == 1) { /* Davinci Intermediate */
+  } else if (tf == 1) { /* DWG Intermediate */
     rgb.x = drt_oetf_davinci_intermediate(rgb.x);
     rgb.y = drt_oetf_davinci_intermediate(rgb.y);
     rgb.z = drt_oetf_davinci_intermediate(rgb.z);

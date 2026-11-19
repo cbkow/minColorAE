@@ -31,7 +31,13 @@ using drtwheels::AppSuite;
 using drtwheels::grey;
 using drtwheels::readFloat;
 using drtwheels::writeFloat;
-using drtwheels::paramOf;
+/* the key's rows, in whichever effect's table this is compiled into (the first Grade's or Grade 2's) */
+inline int paramOf(float drt::DrtGradeParams::*m)
+{
+    for (int k = 0; k < DRT_ROW_COUNT; ++k)
+        if (DRT_ROWS[k].kind == drtae::kFloat && DRT_ROWS[k].gf == m) return k + 1;
+    return -1;
+}
 
 typedef float drt::DrtGradeParams::*GF;
 typedef int drt::DrtGradeParams::*GI;
@@ -73,8 +79,8 @@ inline float vOf(const RowGeom &g, int row, float x) { const Axis a = axisOf(row
 
 inline int paramOfCheck(GI m)
 {
-    for (int k = 0; k < drtae::kGradeRowCount; ++k)
-        if (drtae::kGradeRows[k].kind == drtae::kCheck && drtae::kGradeRows[k].gi == m) return k + 1;
+    for (int k = 0; k < DRT_ROW_COUNT; ++k)
+        if (DRT_ROWS[k].kind == drtae::kCheck && DRT_ROWS[k].gi == m) return k + 1;
     return -1;
 }
 inline bool readOn(PF_ParamDef *params[], int idx) { return idx > 0 && params[idx]->u.bd.value != 0; }

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * minColorAE. Copyright (C) 2026 cbkow. Part of a work derived from OpenDRT v1.1.0 by Jed Smith (GPLv3); see NOTICE.
  */
-/* minColor AE — one source, six effects (Input, Output, Grade, macOS Fix, Knee, AgX).
+/* minColor AE — one source, seven effects (Input, Output, Grade, Grade 2, macOS Fix, Knee, AgX).
  *
  * Compiled once per role: -DDRT_ROLE_OUTPUT=1 gives "minColor Output" (picture formation,
  * drt_transform), -DDRT_ROLE_INPUT=1 gives "minColor Input" (media interpretation,
@@ -19,6 +19,10 @@
 #if DRT_ROLE_GRADE
 #include "drt_ae_wheels.h"
 #include "drt_ae_keybars.h"
+#endif
+#if DRT_ROLE_GRADE2
+#include "drt_ae_keybars.h"
+#include "drt_ae_wheels2.h"
 #endif
 
 #include "AEConfig.h"
@@ -205,6 +209,10 @@ bool rowHidden(int row)
     /* the reference group keeps its twirl and Display Encoding (the eyedroppers' decode);
        Peak goes too: the zones' norm is taken before the tonescale, so no peak reaches it */
     return row > drtae::kGradeReferenceRowsFrom && row < DRT_ROW_COUNT - 1 && r.kind != drtae::kPresetDisplay;
+#elif DRT_ROLE_GRADE2
+    /* the secondary's per-window switches are drawn by the key bars */
+    return r.kind == drtae::kCheck && (r.gi == &drt::DrtGradeParams::sec_hue_on || r.gi == &drt::DrtGradeParams::sec_sat_on ||
+                                       r.gi == &drt::DrtGradeParams::sec_lev_on);
 #else
     (void)row;
     return false;
@@ -249,7 +257,7 @@ void hideStreams(PF_InData *in_data)
 #endif
 
 /* Effect defaults: the DCTL's StickShift defaults with the input set for a
-   colour-managed compositor (linear ACEScg) instead of Resolve's DWG / DI. */
+   colour-managed compositor (linear ACEScg) instead of the DCTL's DWG / DWG Intermediate. */
 DrtRender effectDefaults()
 {
     DrtRender x;
@@ -264,14 +272,15 @@ DrtRender effectDefaults()
     /* Knee: an HDR source into an SDR delivery, BT.2390's knee start */
     x.d.kn_src = 1000.0f; x.d.kn_tgt = 100.0f; x.d.kn_auto = 1; x.d.kn_start = 0.5f;
     x.a = drt::drt_agx_defaults();
+    x.q = drt::drt_grade2_defaults();
     return x;
 }
 
 /* A row's bound value, whichever block it lives in. Popups on the AgX block are floats. */
-float rowFloat(const Row &r, const DrtRender &x) { return r.f ? x.d.*(r.f) : r.gf ? x.g.*(r.gf) : x.a.*(r.af); }
-void setRowFloat(const Row &r, DrtRender &x, float v) { if (r.f) x.d.*(r.f) = v; else if (r.gf) x.g.*(r.gf) = v; else x.a.*(r.af) = v; }
-int rowPopupField(const Row &r, const DrtRender &x) { return r.i ? x.d.*(r.i) : int(std::lround(x.a.*(r.af))); }
-void setRowPopupField(const Row &r, DrtRender &x, int v) { if (r.i) x.d.*(r.i) = v; else x.a.*(r.af) = float(v); }
+float rowFloat(const Row &r, const DrtRender &x) { return r.f ? x.d.*(r.f) : r.gf ? x.g.*(r.gf) : r.af ? x.a.*(r.af) : x.q.*(r.qf); }
+void setRowFloat(const Row &r, DrtRender &x, float v) { if (r.f) x.d.*(r.f) = v; else if (r.gf) x.g.*(r.gf) = v; else if (r.af) x.a.*(r.af) = v; else x.q.*(r.qf) = v; }
+int rowPopupField(const Row &r, const DrtRender &x) { return r.i ? x.d.*(r.i) : int(std::lround(r.af ? x.a.*(r.af) : x.q.*(r.qf))); }
+void setRowPopupField(const Row &r, DrtRender &x, int v) { if (r.i) x.d.*(r.i) = v; else if (r.af) x.a.*(r.af) = float(v); else x.q.*(r.qf) = float(v); }
 
 /* Read a bound row's value out of a checked-out or live PF_ParamDef. */
 void rowFromDef(const Row &r, const PF_ParamDef &d, DrtRender &x)
@@ -318,6 +327,8 @@ bool rowToDef(const Row &r, const DrtRender &x, PF_ParamDef &d)
 const A_long kOutFlags  = PF_OutFlag_DEEP_COLOR_AWARE | PF_OutFlag_SEND_UPDATE_PARAMS_UI
 #if DRT_ROLE_GRADE
                         | PF_OutFlag_CUSTOM_UI
+#elif DRT_ROLE_GRADE2
+                        | PF_OutFlag_CUSTOM_UI | PF_OutFlag_PIX_INDEPENDENT   /* wheels, and no pixel reads its neighbours */
 #else
                         | PF_OutFlag_PIX_INDEPENDENT
 #endif
@@ -327,6 +338,8 @@ const A_long kOutFlags2 = PF_OutFlag2_FLOAT_COLOR_AWARE | PF_OutFlag2_SUPPORTS_S
                           PF_OutFlag2_PARAM_GROUP_START_COLLAPSED_FLAG;
 #if DRT_ROLE_GRADE
 static_assert(kOutFlags == 0x6008000, "update AE_Effect_Global_OutFlags in the Grade PiPL");
+#elif DRT_ROLE_GRADE2
+static_assert(kOutFlags == 0x6008400, "update AE_Effect_Global_OutFlags in the Grade 2 PiPL");
 #else
 static_assert(kOutFlags == 0x6000400, "update AE_Effect_Global_OutFlags in the PiPL");
 #endif
@@ -337,6 +350,9 @@ PF_Err About(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF_Layer
     (void)in_data; /* PF_SPRINTF reaches for it */
 #if DRT_ROLE_AGX
     PF_SPRINTF(out_data->return_msg, "%s v%d.%d\rAgX by Troy Sobotka; Blender's AgX by Eary Chow et al. Ported in part from darktable's AgX module (GPL-3.0-or-later), modified.\rNot affiliated with or endorsed by Blender or darktable. minColorAE, GPL-3.0.",
+               DRT_EFFECT_NAME, DRT_MAJOR_VERSION, DRT_MINOR_VERSION);
+#elif DRT_ROLE_GRADE2
+    PF_SPRINTF(out_data->return_msg, "%s v%d.%d\rA colour corrector with Primaries and HDR-zone wheels, working in a wide-gamut log grading space.\rminColorAE, GPL-3.0.",
                DRT_EFFECT_NAME, DRT_MAJOR_VERSION, DRT_MINOR_VERSION);
 #elif DRT_ROLE_KNEE
     PF_SPRINTF(out_data->return_msg, "%s v%d.%d\rA highlight knee after BT.2390 (QCView's). minColorAE, GPL-3.0.",
@@ -439,10 +455,15 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
             def.ui_width = drtwheels::kWidth;
             def.ui_height = A_short(drtwheels::heightFor(1.0f, drtwheels::wheelsInRow(r.choices), drtwheels::zonesRow(r.choices)));
             PF_ADD_NULL(r.name, id);
+#elif DRT_ROLE_GRADE2
+            def.ui_flags = PF_PUI_CONTROL | PF_PUI_DONT_ERASE_CONTROL;
+            def.ui_width = drtwheels2::kWidth;
+            def.ui_height = A_short(drtwheels2::heightFor(1.0f, r.choices));
+            PF_ADD_NULL(r.name, id);
 #endif
             break;
         case drtae::kKeyBars:
-#if DRT_ROLE_GRADE
+#if DRT_HAS_KEY
             def.ui_flags = PF_PUI_CONTROL | PF_PUI_DONT_ERASE_CONTROL;
             def.ui_width = drtkeys::kWidth;
             def.ui_height = drtkeys::kHeight;
@@ -452,7 +473,7 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
         }
     }
     out_data->num_params = DRT_ROW_COUNT + 1;
-#if DRT_ROLE_GRADE
+#if DRT_ROLE_GRADE || DRT_ROLE_GRADE2
     {
         PF_CustomUIInfo ci;
         AEFX_CLR_STRUCT(ci);
@@ -474,7 +495,7 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
     drt::drt_inverse_display(x.d);
     x.d.tn_su = DRT_SURROUND_DARK;   /* the inverse assumes a Dark-surround render; no row (old projects' stored value is ignored) */
 #endif
-#if DRT_ROLE_GRADE
+#if DRT_ROLE_GRADE || DRT_ROLE_GRADE2
     x.d.in_gamut = x.d.working_gamut;
     x.d.in_oetf = DRT_OETF_LINEAR;
 #endif
@@ -482,8 +503,12 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
     x.d.working_gamut = x.d.in_gamut;   /* "Working Gamut" as a display gamut means the comp's */
 #endif
     x.d = drt::drt_derive(x.d);
-#if DRT_ROLE_GRADE
+#if DRT_HAS_KEY
     x.g = drt::drt_grade_derive(x.g, x.d);
+#endif
+#if DRT_ROLE_GRADE2
+    x.q.sec_on = x.g.sec_enable; x.q.sec_show = x.g.sec_show_mask;
+    x.q = drt::drt_grade2_derive(x.q, x.d);
 #endif
 #if DRT_ROLE_AGX
     x.a = drt::drt_agx_derive(x.a);
@@ -491,7 +516,7 @@ PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
     return x;
 }
 
-#if DRT_ROLE_GRADE
+#if DRT_HAS_KEY
 /* An eyedropper row changed (Set Colour / Add to Range / Remove from Range). AE hands over
    the comp's final value at the picked pixel, before the viewer's OCIO transform (AE 26.5,
    checked 2026-10-25): in an OCIO project the working-space value itself; with a minColor
@@ -624,7 +649,7 @@ PF_Err UserChangedParam(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *p
     const int row = extra->param_index - 1;
     if (row < 0 || row >= DRT_ROW_COUNT) return PF_Err_NONE;
     const Row &changed = DRT_ROWS[row];
-#if DRT_ROLE_GRADE
+#if DRT_HAS_KEY
     if (changed.kind == drtae::kColorPick) return pickColour(in_data, out_data, params, row);
 #endif
 #if DRT_ROLE_INPUT
@@ -781,6 +806,18 @@ PF_Err UpdateParamsUI(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *par
     return PF_Err_NONE;
 }
 
+#if DRT_ROLE_GRADE2
+/* Effect Controls events: the key bars row has its own handler, the wheel rows theirs. */
+PF_Err gradeEvent(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[], PF_EventExtra *extra)
+{
+    if (!extra->contextH || (**extra->contextH).w_type != PF_Window_EFFECT) return PF_Err_NONE;
+    const int row = int(extra->effect_win.index) - 1;
+    if (row >= 0 && row < DRT_ROW_COUNT && DRT_ROWS[row].kind == drtae::kKeyBars)
+        return drtkeys::handleEvent(in_data, out_data, params, extra);
+    return drtwheels2::handleEvent(in_data, out_data, params, extra);
+}
+#endif
+
 #if DRT_ROLE_GRADE
 /* Effect Controls events: the key bars row has its own handler, the wheel rows theirs. */
 PF_Err gradeEvent(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[], PF_EventExtra *extra)
@@ -824,7 +861,7 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
     drt::drt_inverse_display(p->d);   /* "OpenDRT inverse: <encoding>" names the file's gamut + EOTF */
     p->d.tn_su = DRT_SURROUND_DARK;   /* the inverse assumes a Dark-surround render; no row */
 #endif
-#if DRT_ROLE_GRADE
+#if DRT_ROLE_GRADE || DRT_ROLE_GRADE2
     p->d.in_gamut = p->d.working_gamut;   /* the reference measures working-gamut pixels: in_m** = working -> XYZ */
     p->d.in_oetf = DRT_OETF_LINEAR;
 #endif
@@ -832,7 +869,7 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
     p->d.working_gamut = p->d.in_gamut;   /* "Working Gamut" as a display gamut means the comp's */
 #endif
     p->d = drt::drt_derive(p->d);
-#if DRT_ROLE_GRADE
+#if DRT_HAS_KEY
     p->g = drt::drt_grade_derive(p->g, p->d);
     /* the key blur, in this render's pixels (a half-resolution preview blurs half as far); the
        input is asked for that much more on every side so the key blurs across tile edges; the
@@ -859,13 +896,17 @@ PF_Err PreRender(PF_InData *in_data, PF_OutData *, PF_PreRenderExtra *extra)
 #if DRT_ROLE_AGX
     p->a = drt::drt_agx_derive(p->a);
 #endif
+#if DRT_ROLE_GRADE2
+    p->q.sec_on = p->g.sec_enable; p->q.sec_show = p->g.sec_show_mask;   /* the key's two switches */
+    p->q = drt::drt_grade2_derive(p->q, p->d);   /* p->d carries the working gamut (in_m**) */
+#endif
 
     extra->output->pre_render_data = p;
     extra->output->delete_pre_render_data_func = DisposePreRenderData;
 
     ERR(extra->cb->checkout_layer(in_data->effect_ref, 0, 0, &req, in_data->current_time, in_data->time_step,
                                   in_data->time_scale, &in_result));
-#if DRT_ROLE_GRADE
+#if DRT_HAS_KEY
     if (!err && (p->blurRx > 0 || p->blurRy > 0)) {
         PF_LRect r = in_result.result_rect;   /* what came back, cut to what was asked */
         r.left = std::max(r.left, asked.left); r.top = std::max(r.top, asked.top);
@@ -936,7 +977,7 @@ PF_Err pixel8(void *refcon, A_long, A_long, PF_Pixel8 *in, PF_Pixel8 *out)
     return PF_Err_NONE;
 }
 
-#if DRT_ROLE_GRADE
+#if DRT_HAS_KEY
 /* The Grade with a blurred key, on the CPU: the key of every pixel, blurred across then
    down (a Gaussian, 3 sigma = the radius, edges clamped), then the grade with each pixel's
    blurred key. Rows run on AE's threads (iterate_generic). in and out are the same world. */
@@ -1006,7 +1047,7 @@ PF_Err gradeRow(void *refcon, A_long, A_long y, A_long)
         const int ix = x + j.p->offX;
         float r, g, b, a;
         loadPixel(j, ix, iy, r, g, b, a);
-        const drt::float3 c = drt::drt_grade_keyed(j.p->g, j.p->d, drt::make_float3(r, g, b), j.key[std::size_t(iy) * j.w + ix]);
+        const drt::float3 c = DRT_KEYED(*j.p, drt::make_float3(r, g, b), j.key[std::size_t(iy) * j.w + ix]);
         if (j.fmt == PF_PixelFormat_ARGB128) { PF_PixelFloat &q = reinterpret_cast<PF_PixelFloat *>(row)[x]; q.red = c.x; q.green = c.y; q.blue = c.z; q.alpha = a; }
         else if (j.fmt == PF_PixelFormat_ARGB64) { PF_Pixel16 &q = reinterpret_cast<PF_Pixel16 *>(row)[x];
             q.red = A_u_short(clamp01(c.x) * 32768.0f + 0.5f); q.green = A_u_short(clamp01(c.y) * 32768.0f + 0.5f); q.blue = A_u_short(clamp01(c.z) * 32768.0f + 0.5f); q.alpha = A_u_short(a * 32768.0f + 0.5f); }
@@ -1050,7 +1091,7 @@ PF_Err RenderCPUKeyBlur(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat
 PF_Err RenderCPU(PF_InData *in_data, PF_OutData *out_data, PF_PixelFormat fmt,
                  PF_EffectWorld *in, PF_EffectWorld *out, DrtRender *p)
 {
-#if DRT_ROLE_GRADE
+#if DRT_HAS_KEY
     if (p->blurRx > 0 || p->blurRy > 0) return RenderCPUKeyBlur(in_data, out_data, fmt, in, out, p);
 #endif
     switch (fmt) {
@@ -1116,7 +1157,7 @@ PF_Err EffectMain(PF_Cmd cmd, PF_InData *in_data, PF_OutData *out_data, PF_Param
         case PF_Cmd_PARAMS_SETUP:       err = ParamsSetup(in_data, out_data, params, output); break;
         case PF_Cmd_USER_CHANGED_PARAM: err = UserChangedParam(in_data, out_data, params, static_cast<const PF_UserChangedParamExtra *>(extra)); break;
         case PF_Cmd_UPDATE_PARAMS_UI:   err = UpdateParamsUI(in_data, out_data, params); break;
-#if DRT_ROLE_GRADE
+#if DRT_ROLE_GRADE || DRT_ROLE_GRADE2
         case PF_Cmd_EVENT:              err = gradeEvent(in_data, out_data, params, static_cast<PF_EventExtra *>(extra)); break;
 #endif
         case PF_Cmd_GPU_DEVICE_SETUP:   err = drtae::gpuDeviceSetup(in_data, out_data, static_cast<PF_GPUDeviceSetupExtra *>(extra)); break;

@@ -1,8 +1,8 @@
 {
   "opendrt_version": "1.1.0",
   "params_scalars": 124,
-  "input_gamuts": ["XYZ", "ACES 2065-1", "ACEScg", "P3-D65", "Rec.2020", "Rec.709", "ARRI Wide Gamut 3", "ARRI Wide Gamut 4", "RED Wide Gamut RGB", "Sony S-Gamut3", "Sony S-Gamut3.Cine", "Panasonic V-Gamut", "Filmlight E-Gamut", "Filmlight E-Gamut2", "DaVinci Wide Gamut"],
-  "input_transfer_functions": ["Linear", "DaVinci Intermediate", "Filmlight T-Log", "ACEScct", "ARRI LogC3", "ARRI LogC4", "RED Log3G10", "Panasonic V-Log", "Sony S-Log3", "Fuji F-Log2", "Rec.1886 (2.4 power)", "sRGB", "2.2 power", "BT.709 camera", "PQ (100 nits = 1.0)", "HLG 1000 nits", "OpenDRT inverse: Rec.1886", "OpenDRT inverse: sRGB Display", "OpenDRT inverse: Display P3", "OpenDRT inverse: Rec.2100 PQ", "OpenDRT inverse: Rec.2100 HLG", "OpenDRT inverse: Dolby PQ / P3-D65"],
+  "input_gamuts": ["XYZ", "ACES 2065-1", "ACEScg", "P3-D65", "Rec.2020", "Rec.709", "ARRI Wide Gamut 3", "ARRI Wide Gamut 4", "RED Wide Gamut RGB", "Sony S-Gamut3", "Sony S-Gamut3.Cine", "Panasonic V-Gamut", "Filmlight E-Gamut", "Filmlight E-Gamut2", "DWG"],
+  "input_transfer_functions": ["Linear", "DWG Intermediate", "Filmlight T-Log", "ACEScct", "ARRI LogC3", "ARRI LogC4", "RED Log3G10", "Panasonic V-Log", "Sony S-Log3", "Fuji F-Log2", "Rec.1886 (2.4 power)", "sRGB", "2.2 power", "BT.709 camera", "PQ (100 nits = 1.0)", "HLG 1000 nits", "OpenDRT inverse: Rec.1886", "OpenDRT inverse: sRGB Display", "OpenDRT inverse: Display P3", "OpenDRT inverse: Rec.2100 PQ", "OpenDRT inverse: Rec.2100 HLG", "OpenDRT inverse: Dolby PQ / P3-D65"],
   "creative_whites": ["D93", "D75", "D65", "D60", "D55", "D50"],
   "looks": [
     {

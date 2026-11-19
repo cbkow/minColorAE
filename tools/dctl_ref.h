@@ -14,8 +14,8 @@ namespace dctl_ref {
 
 /* The DCTL's preset-mode controls, by their DCTL names and indices. */
 struct Settings {
-    int   in_gamut = 14;                /* DCTL default: DaVinci Wide Gamut */
-    int   in_oetf = 1;                  /* DCTL default: DaVinci Intermediate */
+    int   in_gamut = 14;                /* DCTL default: DWG */
+    int   in_oetf = 1;                  /* DCTL default: DWG Intermediate */
     float tn_Lp = 100.0f;
     float tn_gb = 0.13f;
     float pt_hdr = 0.5f;
