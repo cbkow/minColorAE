@@ -33,7 +33,7 @@ drt::float3 cpu(const Case &c, drt::float3 v)
     case DRT_CUDA_OUTPUT: return drt::drt_transform(c.d, v);
     case DRT_CUDA_INPUT:  return drt::drt_input_transform(c.d, v);
     case DRT_CUDA_GRADE:  return drt::drt_grade(c.g, c.d, v);
-    case DRT_CUDA_GRADE2: return drt::drt_grade2(c.q, v);
+    case DRT_CUDA_GRADE2: return drt::drt_grade2_keyed(c.q, v, drt::drt_grade_key(c.g, c.d, v));   /* its secondary's key is the first Grade's */
     case DRT_CUDA_MACFIX: return drt::drt_macos_fix(v);
     case DRT_CUDA_KNEE:   return drt::drt_knee(c.d, v);
     default:              return drt::drt_agx(c.a, v);
@@ -57,6 +57,7 @@ Case finish(Case c)
     if (c.role == DRT_CUDA_GRADE || c.role == DRT_CUDA_GRADE2) c.g = drt::drt_grade_derive(c.g, c.d);   /* Grade 2's key is the Grade's */
     if (c.role == DRT_CUDA_KNEE) c.d = drt::drt_knee_derive(c.d);
     c.a = drt::drt_agx_derive(c.a);
+    c.q.sec_on = c.g.sec_enable; c.q.sec_show = c.g.sec_show_mask;   /* as the effect does */
     c.q = drt::drt_grade2_derive(c.q, c.d);
     return c;
 }
@@ -90,6 +91,8 @@ int main()
     { Case c = base("knee, 1000 -> 100 auto", DRT_CUDA_KNEE); cases.push_back(finish(c)); }
     { Case c = base("grade 2, HDR wheels", DRT_CUDA_GRADE2); c.q.g_exp = 0.4f; c.q.z2_exp = -0.5f; c.q.z3_sat = 1.3f; c.q.z1_x = 0.03f; c.q.g_y = -0.02f; c.q.contrast = 1.15f; c.q.temp = 400.0f; c.q.blk = 0.05f; cases.push_back(finish(c)); }
     { Case c = base("grade 2, Primaries", DRT_CUDA_GRADE2); c.q.lift_r = 0.02f; c.q.gamma_g = 0.05f; c.q.gain_b = 1.2f; c.q.offset_r = 27.0f; cases.push_back(finish(c)); }
+    { Case c = base("grade 2, secondary, three wheels", DRT_CUDA_GRADE2); c.g.sec_enable = 1; c.g.sec_hue = 20.0f; c.g.sec_hue_width = 200.0f; c.g.sec_sat_min = 0.0f;
+      c.q.sec_three = 1.0f; c.q.s0_exp = 0.6f; c.q.s1_exp = -0.4f; c.q.s1_x = 0.03f; c.q.s2_sat = 1.4f; c.q.s2_y = -0.02f; c.q.g_exp = 0.2f; cases.push_back(finish(c)); }
     { Case c = base("agx, SDR", DRT_CUDA_AGX); cases.push_back(finish(c)); }
     { Case c = base("agx, Peak 1000, Rec.2020 / P3", DRT_CUDA_AGX); c.a.peak = 1000.0f; c.a.working_gamut = DRT_IN_REC2020; c.a.target = 2.0f; cases.push_back(finish(c)); }
 
