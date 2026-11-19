@@ -489,6 +489,7 @@ inline PF_Err handleEvent(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         PF_DoClickEventInfo &ck = extra->u.do_click;
         int i;
         const Hit h = hitTest(frame, bank, ck.screen_point, i, params);
+        if (drtwheels::g_log) drtwheels::g_log("wheels2 click: bank %d wheel %d hit %d clicks %d at %d,%d", bank, i, int(h), int(ck.num_clicks), int(ck.screen_point.h), int(ck.screen_point.v));
         if (h == kNone) return PF_Err_NONE;
         if (ck.num_clicks >= 2) {
             drtwheels::undoGroup(in_data, true);

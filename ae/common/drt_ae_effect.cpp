@@ -376,7 +376,7 @@ PF_Err GlobalSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *[], PF
 #else
     (void)in_data;
 #endif
-#if DRT_ROLE_GRADE
+#if DRT_ROLE_GRADE || DRT_ROLE_GRADE2
     drtwheels::g_log = dlog;
 #endif
     out_data->out_flags  = kOutFlags;
