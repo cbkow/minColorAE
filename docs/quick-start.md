@@ -42,7 +42,7 @@ To change those assumptions for this project, press **In Rules…**. See
 
 At the bottom of the Composition panel, choose the display you are looking at:
 
-<img src="images/viewer_display_menu.png" width="420" alt="The viewer's display menu">
+<img src="images/viewer_display_menu.png" width="480" alt="The viewer's display menu">
 
 | You are on | Choose |
 | --- | --- |

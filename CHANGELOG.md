@@ -23,8 +23,6 @@ Names and documentation only. No picture changes.
 - The effect keeps its internal name and its file name: projects and presets
   that use it open unchanged, and the new files copy over the old ones.
 - Apple's XDR displays are not covered by the fix or its documentation.
-- The screenshots of the viewer's display menu and of the effect still show the
-  old names.
 
 ## 0.1.7 (2026-11-19)
 
