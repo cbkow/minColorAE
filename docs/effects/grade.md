@@ -47,6 +47,14 @@ They act on the log-encoded picture, so in scene terms:
 - **Lift** grows toward the shadows and pins the top of the range.
 - **Gamma** moves the middle most and pins both ends.
 
+The range those pins sit on runs from black to a hundred times diffuse white.
+An ordinary picture fills only its lower half, so inside one the three overlap
+far more than the wheels of a corrector that works on display values: Lift still
+moves white (about two thirds of a stop for a push that moves mid grey by one),
+Gamma moves every level by a similar amount, and Gain climbs steeply toward the
+highlights. Use Offset for an even change, and the HDR zones to work on one part
+of the range.
+
 ## HDR
 
 Four wheels in the row: the **Dark**, **Shadow** and **Light** zones and

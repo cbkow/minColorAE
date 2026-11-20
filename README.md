@@ -1,6 +1,6 @@
 # minColorAE
 
-Linear-light colour tools for Adobe After Effects: six effects and a small panel
+Linear-light colour tools for Adobe After Effects: seven effects and a small panel
 that interpret footage into one working space, deliver through OpenColorIO, and
 add a picture formation (AgX) or a highlight knee only when you ask for one.
 
@@ -35,6 +35,7 @@ add a picture formation (AgX) or a highlight knee only when you ask for one.
 | **minColor Knee** | A BT.2390 highlight knee for HDR content heading somewhere dimmer. |
 | **minColor AgX** | Parametric, HDR-capable AgX; Blender-compatible at its defaults. |
 | **minColor macOS Native Fix** | Corrects After Effects' viewer on a Mac whose monitor is left in its native mode, when not using OCIO. |
+| **minColor Grade (Legacy)** | The first Grade, kept so projects made before 0.1.6 open and render as they did. |
 | **minColor panel** | Set OCIO, per-project In rules, Apply In, Add Output. |
 | **OCIO config** | Linear conversions, generated from the same matrices as the effects. |
 

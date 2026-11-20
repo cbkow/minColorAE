@@ -1,7 +1,8 @@
 # Installing minColorAE @VERSION@ (@PLATFORM@)
 
-Quit After Effects. If an earlier version is installed, remove its `minColor`
-effects folder first (a file was renamed in 0.1.6). Then copy:
+Quit After Effects. If version 0.1.5 or earlier is installed, remove its
+`minColor` effects folder first (a file was renamed in 0.1.6); from 0.1.6 on,
+the new files copy over the old ones. Then copy:
 
 | From this folder | To |
 | --- | --- |

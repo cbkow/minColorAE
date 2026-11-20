@@ -8,6 +8,13 @@ Linear in and out, 1.0 = 100 nits.
 
 <img src="../images/ec_knee.png" width="430" alt="minColor Knee controls">
 
+<p>
+<img src="../images/view_raw.jpg" width="49%" alt="Un-tone-mapped">
+<img src="../images/view_knee.jpg" width="49%" alt="minColor Knee">
+</p>
+
+*Left un-tone-mapped, right through minColor Knee.*
+
 - **Source Peak (nits)**, default 1000: the brightest content that should still
   map; anything brighter lands on the target. Drags 100–4000, type up to 10000.
 - **Target Peak (nits)**, default 100. Drags 48–1000, type up to 10000.

@@ -84,4 +84,16 @@ fix)* and *minColor macOS Fix*, and this page said every Mac needed them.
 The effects carry values above 1.0 (100 nits) through everything when the
 project is 32 bpc. After Effects' viewer shows only up to 1.0 through OCIO, so
 judge HDR with an external monitor or a HDR-capable player. minColor Knee and
-minColor AgX both take a peak in nits for HDR deliveries.
+minColor AgX both take a peak in nits.
+
+How HDR leaves a project depends on the setup:
+
+- **OCIO**: the config's encoded spaces (sRGB, Rec.709 BT.1886, Display P3) stop
+  at display white. HDR leaves as a linear EXR, through one of the linear Output
+  Color Spaces.
+- **Unmanaged or Adobe engine**: minColor Output can encode Rec.2100 PQ, Rec.2100
+  HLG, or PQ in a P3-D65 container, with 1.0 at 100 nits.
+
+minColor writes pixels only. It puts no HDR tags or mastering metadata in a file;
+those come from the encoder or a later step, and a PQ or HLG file without them
+will not play as HDR.
