@@ -3,7 +3,7 @@
 [The panel](#the-panel) · [Input](#mincolor-input) · [Output](#mincolor-output) ·
 [Grade](#mincolor-grade) · [Knee](#mincolor-knee) · [AgX](#mincolor-agx) ·
 [macOS Native Fix](#mincolor-macos-native-fix) · [Grade (Legacy)](#mincolor-grade-legacy) ·
-[Presets](#presets) · [Troubleshooting](#troubleshooting)
+[Presets](#presets)
 
 Everything is linear light, with 1.0 at 100 nits.
 
@@ -122,7 +122,7 @@ No settings. Only for a Mac whose monitor is left in its native mode, in a
 project where minColor Output encodes for the display. Put it on a **guide
 layer** at the very top, so it shows in the viewer and never renders. In a
 project made with Set OCIO, pick the **macOS native monitor (AE viewport fix)**
-display instead. A monitor in sRGB or Display P3 mode needs neither.
+display instead. A monitor in a mode that matches its profile needs neither.
 
 **macOS Video native monitor (AE viewport fix)** shows a Rec.709 video file as a
 Mac's players show it, on the same kind of monitor.
@@ -144,17 +144,3 @@ working space.
 | Input | mCin_sRGB, mCin_rec709video, mCin_ACEScg, mCin_ACES2065-1, mCin_linear_rec709, mCin_linear_rec2020, mCin_Netflicker (PQ / P3-D65 review files) |
 | Output | mCout_sRGB, mCout_rec709video, mCout_ACEScg, mCout_ACES2065-1 |
 | AgX | mCagx_sRGB, mCagx_P3, mCagx_HDR1000 |
-
-## Troubleshooting
-
-| What you see | What to do |
-| --- | --- |
-| The viewer is dark and flat | Its display is *None*: pick your display at the bottom of the Composition panel. |
-| A multilayer EXR is black | Put EXtractoR, or After Effects' channel extraction, before minColor Input. |
-| Oversaturated on a Mac | The monitor is in its native mode: pick the native-monitor display, or add minColor macOS Native Fix on a guide layer. |
-| Dull on a Mac | A fix is on that the monitor does not need: pick **sRGB**, or remove the fix layer. |
-| Highlights clip | Add minColor Knee or minColor AgX, and check the project is 32 bpc. |
-| "Display view color space not valid (5027::304)" | A Mocha AE instance still holds a display from the old config: open it, pick a display and view, save. |
-| The project lost its config | It was moved without its `minColor` folder: press Set OCIO again. |
-| The effects render as if off | They are not installed on this machine. Install them; the settings are kept. |
-| Slow on Windows | The GPU is used only under *Mercury GPU Acceleration (CUDA)* on an NVIDIA card. |

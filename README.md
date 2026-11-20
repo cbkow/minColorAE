@@ -44,11 +44,13 @@ Updating from 0.1.5 or earlier: remove the old `minColor` effects folder first.
 
    | You are on | Choose |
    | --- | --- |
+   | Windows | **sRGB** |
+   | A Mac, monitor in sRGB mode | **sRGB** |
+   | A Mac, monitor in Display P3 mode | **Display P3** |
+   | A Mac, monitor in Rec.709 mode | **Rec.709 (BT.1886)** |
    | A Mac, monitor left in its native mode | **macOS native monitor (AE viewport fix)** |
-   | A Mac, monitor in sRGB or Display P3 mode | **sRGB** |
-   | Windows, an sRGB monitor | **sRGB** |
-   | Windows, a P3 monitor in P3 mode | **Display P3** |
-   | A Rec.709 reference monitor | **Rec.709 (BT.1886)** |
+
+   On a Mac, match the entry to the mode the monitor and its profile are in.
 
 5. **Grade, and shape the highlights if you want to**, with minColor Grade,
    minColor Knee or minColor AgX on adjustment layers.
@@ -68,7 +70,7 @@ Work in 32 bpc. Linear light above 1.0 clips at 8 and 16 bpc.
 | [minColor macOS Native Fix](docs/reference.md#mincolor-macos-native-fix) | Corrects the viewer on a Mac whose monitor is in its native mode. |
 | [minColor Grade (Legacy)](docs/reference.md#mincolor-grade-legacy) | The first Grade, for projects made before 0.1.6. |
 
-Controls, the panel's buttons, presets and troubleshooting are in the
+Controls, the panel's buttons and presets are in the
 [reference](docs/reference.md). Changes by version are in the
 [changelog](CHANGELOG.md). To build from source, see [BUILDING.md](BUILDING.md).
 
