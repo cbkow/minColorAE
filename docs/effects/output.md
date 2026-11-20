@@ -9,7 +9,7 @@ you.
 
 ## How it is used
 
-- **OCIO project**: Input Gamut = the working space, Display Encoding *None -
+- **Project set to a working space**: Input Gamut = the working space, Display Encoding *None -
   Linear / Working Gamut*. The Output hands back the linear light unchanged; the
   viewer's display and the Output Module encode it.
 - **Unmanaged or Adobe-engine project**: the Output's Display Encoding is the

@@ -49,8 +49,8 @@ layer, or on an adjustment layer below the Output.
   resolution) so a noisy or edgy selection blends into its surroundings; it
   blurs the selection, never the picture.
 - **DRT Reference > Display Encoding**: how a pick is decoded. After Effects hands
-  an eyedropper the comp's final value, before the viewer's display: in an OCIO
-  project that is the working space itself, so leave the default *None - Linear /
+  an eyedropper the comp's final value, before the viewer's display: in a project
+  set to a working space that is the working space itself, so leave the default *None - Linear /
   Working Gamut*. With a minColor Output above the Grade (Unmanaged or
   Adobe-engine projects), set it to the Output's Display Encoding.
 

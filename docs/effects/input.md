@@ -12,8 +12,8 @@ it from the file extension.
   table below), the
   linear spaces, and the display encodings deliveries come in: Rec.1886 (2.4
   power), sRGB, 2.2 power, BT.709 camera, PQ and HLG.
-- **Working Gamut**: the comp's working space, ACEScg by default. In an OCIO
-  project Apply In sets it to the project's working space.
+- **Working Gamut**: the comp's working space, ACEScg by default. In a project
+  set to a working space, Apply In sets it to that space.
 - **Input Range**: *Full*, or *Limited (video)* when a file arrives with video
   levels unexpanded (64–940 of 1023). After Effects expands ProRes and most video
   itself, so leave Full unless the picture looks lifted and flat.

@@ -10,7 +10,7 @@ layer, then minColor Input.
 
 **Colours look oversaturated on a Mac.** The monitor is in its native mode and
 you are viewing without the correction for it: pick **macOS native monitor (AE viewport fix)**
-in an OCIO project, or add **minColor macOS Native Fix** on a guide layer in an
+in a project made with Set OCIO, or add **minColor macOS Native Fix** on a guide layer in an
 Adobe-engine project.
 
 **Colours look dull on a Mac.** The monitor is in a mode (sRGB, Display P3) with

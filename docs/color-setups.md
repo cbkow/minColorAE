@@ -1,51 +1,67 @@
 # Color setups
 
-minColor works in three project setups. The effects behave the same in all of
-them; what changes is who encodes the picture for the screen and for the render.
+A minColor project runs in one of three ways. The effects do the same thing in
+all three. What differs is who encodes the picture for the screen and for the
+render.
 
-| | OCIO (recommended) | Unmanaged | Adobe engine |
+| | Working space | Unmanaged | Adobe engine |
 | --- | --- | --- | --- |
-| Set with | Panel: **Set OCIO**, a working space | Panel: **Set OCIO**, *Unmanaged* | Project Settings by hand |
-| Comp contains | Linear light in the working space | Display-encoded pixels | Display-encoded pixels |
-| Viewer encodes with | The config's display | The config's display (the native-monitor fix only) | Nothing (add **macOS Native Fix** on a Mac that needs it) |
-| Render encodes with | Output Module *Output Color Space* | **minColor Output** | **minColor Output** |
+| How you get it | Panel: **Set OCIO**, pick a working space | Panel: **Set OCIO**, pick *Unmanaged* | Project Settings, by hand |
+| The comp holds | Linear light in the working space | Display-encoded pixels | Display-encoded pixels |
+| The viewer is encoded by | The display you pick in the viewer | minColor Output (the viewer's display only adds the native-monitor fix) | minColor Output (add **macOS Native Fix** on a Mac that needs it) |
+| The render is encoded by | The Output Module's *Output Color Space* | **minColor Output** | **minColor Output** |
 
-## OCIO: linear conversions
+In every setup **minColor Input** on each footage layer is what interprets the
+file. The configs have no file rules, so After Effects converts nothing on
+import.
 
-The project's OCIO config is `minColor/mincolor.ocio`, next to the `.aep`. It has
-five linear working spaces (ACEScg, ACES2065-1, Linear Rec.709, Linear P3-D65,
-Linear Rec.2020), three encoded spaces for delivery and viewing (sRGB, Rec.709
-BT.1886, Display P3), and one view, **Un-tone-mapped**, on five displays.
+## Working space
 
-- **minColor Input** on each footage layer interprets it into the working space.
-  The config has no file rules, so After Effects converts nothing on import:
-  the Input is the only interpreter.
-- Composite in linear light.
-- The viewer's display encodes for your screen (see [Quick start, step
-  4](quick-start.md#4-pick-the-viewers-display)).
-- The Output Module's **Output Color Space** encodes the render.
-- **minColor Output** is optional: on top, with Display Encoding *None - Linear /
-  Working Gamut*, it hands back the linear light unchanged, which the viewer and
-  the Output Module then encode as usual.
+Set OCIO writes `minColor/mincolor.ocio` next to the `.aep` and makes it the
+project's config. It has:
 
-The config and minColor Input share their colour matrices, so a conversion made
-by either one agrees with the other exactly. The ACES spaces reach D65 through
-CAT02, as OpenDRT does; After Effects' own ACES configs use Bradford, which
-differs by at most about 0.004 on saturated colours and not at all on greys.
+- five linear working spaces: ACEScg, ACES2065-1, Linear Rec.709, Linear P3-D65,
+  Linear Rec.2020;
+- three encoded spaces for viewing and delivery: sRGB, Rec.709 BT.1886, Display P3;
+- one view, **Un-tone-mapped**, on five displays.
 
-## Unmanaged: OCIO as a pass-through
+How a project runs:
 
-The config is `minColor/mincolor-unmanaged.ocio`, whose working space
-"minColor Output" is only a label. Pixels pass through; **minColor Output** at the
-top encodes for the display (default *sRGB Display - 2.2 Power / Rec.709*), and
-what it writes is what renders. The config's **macOS native monitor (AE viewport fix)**
-display corrects the viewer on a Mac whose monitor is in its native mode;
-**Windows (passthrough)** leaves pixels alone, and is the one to pick on any
-machine that needs no correction.
+1. minColor Input on each footage layer converts it to the working space.
+2. You composite in linear light.
+3. The display you pick in the viewer encodes the picture for your screen (see
+   [Quick start, step 4](quick-start.md#4-pick-the-viewers-display)).
+4. The Output Module's **Output Color Space** encodes the render.
+
+**minColor Output** is set to *None - Linear / Working Gamut* here: it passes the
+linear light on unchanged. Do not set its Display Encoding to a delivery in this
+setup, or the viewer and the Output Module will encode the picture a second time.
+
+The config and minColor Input use the same colour matrices, so a conversion made
+by one agrees with the other exactly. The ACES spaces reach D65 through CAT02, as
+OpenDRT does. After Effects' own ACES configs use Bradford, which differs by at
+most about 0.004 on saturated colours and not at all on greys.
+
+## Unmanaged
+
+Set OCIO writes `minColor/mincolor-unmanaged.ocio`. Its working space, "minColor
+Output", is only a label: After Effects passes pixels through.
+
+1. minColor Input on each footage layer converts it to the working gamut set on
+   the effects (ACEScg by default).
+2. You composite in linear light.
+3. **minColor Output** at the top of the comp encodes for the display or the
+   delivery. Its default is *sRGB Display - 2.2 Power / Rec.709*. What it writes
+   is what you see and what renders.
+
+The viewer's display menu has two entries. **macOS native monitor (AE viewport fix)**
+corrects the viewer on a Mac whose monitor is in its native mode. **Windows
+(passthrough)** leaves pixels alone, and is the one to pick on any machine that
+needs no correction.
 
 ## Adobe engine
 
-**Project Settings > Color**: Adobe engine, working space **None**, footage
+In **Project Settings > Color**: Adobe engine, working space **None**, footage
 interpreted as **Preserve RGB**, 32 bpc. After Effects passes pixels through and
 the effects do everything:
 
@@ -88,7 +104,7 @@ minColor AgX both take a peak in nits.
 
 How HDR leaves a project depends on the setup:
 
-- **OCIO**: the config's encoded spaces (sRGB, Rec.709 BT.1886, Display P3) stop
+- **Working space**: the config's encoded spaces (sRGB, Rec.709 BT.1886, Display P3) stop
   at display white. HDR leaves as a linear EXR, through one of the linear Output
   Color Spaces.
 - **Unmanaged or Adobe engine**: minColor Output can encode Rec.2100 PQ, Rec.2100

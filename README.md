@@ -1,8 +1,10 @@
 # minColorAE
 
-Linear-light colour tools for Adobe After Effects: seven effects and a small panel
-that interpret footage into one working space, deliver through OpenColorIO, and
-add a picture formation (AgX) or a highlight knee only when you ask for one.
+Colour tools for Adobe After Effects that work in linear light: seven effects and
+a panel. minColor Input says what each file is and converts it to the comp's
+working space. You composite and grade there. minColor Output encodes the result
+for a display or a delivery. A highlight knee and AgX are separate effects, used
+only when you add them.
 
 **[Read the documentation](docs/README.md)** ·
 [Install](docs/install.md) · [Quick start](docs/quick-start.md)
@@ -30,14 +32,14 @@ add a picture formation (AgX) or a highlight knee only when you ask for one.
 | | |
 | --- | --- |
 | **minColor Input** | What a file is (camera logs, display encodings, linear), into the comp's working space. |
-| **minColor Output** | Encodes for a display or a delivery: a pure conversion, no tonescale. |
+| **minColor Output** | Encodes for a display or a delivery: a gamut matrix and a curve, no tonescale. |
 | **minColor Grade** | Colour correction for linear light: Primaries wheels, HDR zone wheels and an HSL secondary. |
 | **minColor Knee** | A BT.2390 highlight knee for HDR content heading somewhere dimmer. |
 | **minColor AgX** | Parametric, HDR-capable AgX; Blender-compatible at its defaults. |
 | **minColor macOS Native Fix** | Corrects After Effects' viewer on a Mac whose monitor is left in its native mode, when not using OCIO. |
 | **minColor Grade (Legacy)** | The first Grade, kept so projects made before 0.1.6 open and render as they did. |
-| **minColor panel** | Set OCIO, per-project In rules, Apply In, Add Output. |
-| **OCIO config** | Linear conversions, generated from the same matrices as the effects. |
+| **minColor panel** | Sets the project up (Set OCIO), puts Input on footage (Apply In, In Rules) and adds the Output. |
+| **OCIO config** | Written next to the project by Set OCIO, for After Effects' OCIO mode. Generated from the same matrices as the effects. |
 
 After Effects 2027 (27.0) on macOS (Metal) and Windows (CUDA), with CPU rendering
 everywhere; made on After Effects 2026 (26.5) until 0.1.5. Version 0.1.8.

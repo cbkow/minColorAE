@@ -21,5 +21,5 @@ above minColor Output. Guide layers show in the viewer but are skipped by the
 Render Queue and Media Encoder; on an ordinary layer the fix would be baked into
 the render.
 
-In an OCIO project you don't need the effect: pick the
+In a project made with Set OCIO you don't need the effect: pick the
 **macOS native monitor (AE viewport fix)** display.

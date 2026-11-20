@@ -65,7 +65,7 @@ ARRIRAW to the camera's LogC; change them if your importer settings differ.
 ### Apply In
 
 Sets **minColor Input** on the selected footage layers of the active comp from
-the In rules, by file extension, and (in an OCIO project) sets its Working Gamut
+the In rules, by file extension, and (in a project set to a working space) sets its Working Gamut
 to the project's working space. Layers without the effect get it first in their
 effect stack. The panel lists the changes and asks before applying them; they
 are one undo step. Every selected layer is reported, including the ones skipped
@@ -74,7 +74,7 @@ and why.
 ### Add Output
 
 Adds an adjustment layer with **minColor Output** at the top of the active comp
-(under a macOS Native Fix layer, if the comp has one). In an OCIO project it sets the
+(under a macOS Native Fix layer, if the comp has one). In a project set to a working space it sets the
 Input Gamut to the working space and the Display Encoding to *None - Linear /
 Working Gamut*, so the Output hands back linear light for the viewer and the
 Output Module to encode. One per comp: an existing one is reported instead.

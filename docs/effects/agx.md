@@ -19,7 +19,7 @@ ships none of Blender's files.
 *Left un-tone-mapped, right minColor AgX at its defaults.*
 
 Put it on an adjustment layer over the comp's content, under minColor Output and
-any macOS Native Fix layer. In an OCIO project the viewer and the Output Module encode
+any macOS Native Fix layer. In a project set to a working space the viewer and the Output Module encode
 its result as they would any linear light; in an Unmanaged or Adobe-engine
 project, minColor Output encodes it. Work in 32 bpc.
 
