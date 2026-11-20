@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.7 (2026-11-19)
+
+- **More cameras in the Input.** Five encodings and four gamuts join the Input
+  Transfer and Input Gamut menus:
+
+  | Footage | Input Gamut | Input Transfer |
+  |---|---|---|
+  | Apple Log (iPhone) | Rec.2020 | Apple Log |
+  | Apple Log 2 | Apple Wide Gamut | Apple Log |
+  | Canon Log 2, Canon Log 3 | Canon Cinema Gamut | Canon Log 2 / Canon Log 3 |
+  | Blackmagic (Gen 5 colour science) | Blackmagic Wide Gamut Gen 5 | Blackmagic Film Gen 5 |
+  | DJI D-Log | DJI D-Gamut | DJI D-Log |
+
+  Apple Log 2 is Apple Log's curve on a wider gamut, so it has no menu entry of
+  its own. DJI's D-Log M is a different encoding and is not covered.
+- The new entries are at the **end** of each menu, after the ones that were
+  there: a saved project holds a menu position, and nothing that was in a menu
+  has moved. Projects and presets from earlier versions load unchanged.
+- The same four gamuts are offered as a Working Gamut.
+- Each curve is checked against its maker's published formula and each gamut
+  against its published primaries by the test suite.
+
 ## 0.1.6 (2026-11-19)
 
 - **A new minColor Grade.** The controls a colourist knows from a dedicated

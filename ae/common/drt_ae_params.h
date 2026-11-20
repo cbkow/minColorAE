@@ -126,7 +126,11 @@ struct Row {
 /* Popup strings. Built once from the core's name tables so the lists can never
    disagree with the kernel's indices. */
 const char *inGamutPopup();
-const char *inOetfPopup(int count);    /* first `count` transfer names */
+const char *inOetfPopup(const int *map);   /* every transfer name, or (with kOutputOetfMap) the Output's own list */
+/* The Output's Input Transfer menu: every transfer but the OpenDRT inverse entries. The camera encodings
+   added after the inverses (DRT_OETF_APPLE_LOG...) follow HLG here, so the menu position is not the value. */
+extern const int kOutputOetfMap[];
+#define DRT_OUTPUT_OETF_COUNT (DRT_OETF_COUNT - DRT_OETF_INVERSE_COUNT)
 const char *workingGamutPopup();
 extern const int kWorkingGamutMap[];   /* curated subset of DRT_IN_* for the Working Gamut popup (a row with this map and 0 choices) */
 extern const int kWorkingGamutCount;
@@ -234,7 +238,7 @@ static const int kLookRowCount = int(sizeof(kLookRowsCounted) / sizeof(kLookRows
 /* ---------------------------------------------------------------- Output */
 static const Row kOutputRows[] = {
     DRT_P(in_gamut,  "Input Gamut",    nullptr, DRT_IN_GAMUT_COUNT),
-    DRT_P(in_oetf,   "Input Transfer", nullptr, DRT_OETF_INVERSE_FIRST),   /* no inverse entries on the render side */
+    DRT_PM(in_oetf,  "Input Transfer", nullptr, DRT_OUTPUT_OETF_COUNT, kOutputOetfMap),   /* no inverse entries on the render side */
     DRT_PX(out_view, "Rendering",      kViewPopup, 2, 1000),   /* as an OCIO display's views: the rendering, or none */
     DRT_PRESET(kPresetDisplay,   "Display Encoding"),
     DRT_PX(tn_su,    "Surround (viewing room)", kSurroundPopup, 3, 1001),   /* the viewing room, Dark by default; no preset writes it (minColor) */

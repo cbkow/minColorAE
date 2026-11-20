@@ -180,7 +180,7 @@ int main()
     /* 5. Every input gamut, linear. */
     {
         Worst w;
-        for (int g = 0; g < DRT_IN_GAMUT_COUNT; ++g) {
+        for (int g = 0; g < DRT_IN_GAMUT_UPSTREAM_COUNT; ++g) {   /* the camera gamuts appended after them: section 9b */
             drt::DrtSettings s;
             s.in_gamut = g; s.in_oetf = DRT_OETF_LINEAR; s.look = 0; s.display = 0;
             run(s, lin, w);
@@ -309,6 +309,64 @@ int main()
         ok = ok && good;
     }
 
+    /* 9b. The camera encodings and gamuts appended after upstream's (Apple, Canon, Blackmagic, DJI): no DCTL twin.
+           Curves: each maker's published ENCODING formula, in double, then the kernel's decode must return the
+           scene value (the kernel holds only the decode, so this is not the same code run twice). DJI publishes
+           rounded constants, hence its wider tolerance. Gamuts: red, green and blue must land on the published
+           chromaticities and white on D65. */
+    {
+        bool good = true;
+        auto dec3 = [](int tf, int gamut, drt::float3 v) {
+            drt::DrtParams p = drt::drt_stickshift_defaults();
+            p.in_oetf = tf; p.in_gamut = gamut; p.working_gamut = DRT_IN_XYZ;
+            p = drt::drt_derive(p);
+            return drt::drt_input_transform(p, v);
+        };
+        struct Curve { const char *name; int tf; double tol; double (*enc)(double); };
+        const Curve curves[] = {
+            { "Apple Log", DRT_OETF_APPLE_LOG, 2e-4, [](double r) {
+                  const double R0 = -0.05641088, Rt = 0.01, c = 47.28711236, beta = 0.00964052, gamma = 0.08550479, delta = 0.69336945;
+                  return r >= Rt ? gamma * std::log2(r + beta) + delta : (r >= R0 ? c * (r - R0) * (r - R0) : 0.0); } },
+            { "Canon Log 2", DRT_OETF_CANON_LOG2, 2e-4, [](double r) {
+                  const double x = r / 0.9;
+                  return x < 0.0 ? -0.24136077 * std::log10(1.0 - 87.099375 * x) + 0.092864125 : 0.24136077 * std::log10(87.099375 * x + 1.0) + 0.092864125; } },
+            { "Canon Log 3", DRT_OETF_CANON_LOG3, 2e-4, [](double r) {
+                  const double x = r / 0.9;
+                  return x < -0.014 ? -0.36726845 * std::log10(1.0 - 14.98325 * x) + 0.12783901
+                       : (x <= 0.014 ? 1.9754798 * x + 0.12512219 : 0.36726845 * std::log10(14.98325 * x + 1.0) + 0.12240537); } },
+            { "Blackmagic Film Gen 5", DRT_OETF_BMD_FILM_GEN5, 2e-4, [](double r) {
+                  return r < 0.005 ? 8.283605932402494 * r + 0.09246575342465753 : 0.08692876065491224 * std::log(r + 0.005494072432257808) + 0.5300133392291939; } },
+            { "DJI D-Log", DRT_OETF_DJI_DLOG, 1e-3, [](double r) {
+                  return r <= 0.0078 ? 6.025 * r + 0.0929 : std::log10(r * 0.9892 + 0.0108) * 0.256663 + 0.584555; } },
+        };
+        long n = 0;
+        for (const Curve &c : curves)
+            for (double r : {-0.02, -0.005, 0.0, 0.002, 0.006, 0.012, 0.05, 0.18, 0.9, 4.0, 16.0}) {
+                if (c.tf == DRT_OETF_APPLE_LOG && r < 0.0 && c.enc(r) == 0.0 && r < -0.05641088) continue;
+                const float code = float(c.enc(r));
+                const double got = dec3(c.tf, DRT_IN_XYZ, drt::make_float3(code, code, code)).y;
+                ++n;
+                if (std::fabs(got - r) > c.tol * std::fabs(r) + 2e-5) { std::printf("   %s: scene %.5f -> code %.6f -> %.6f\n", c.name, r, code, got); good = false; }
+            }
+        struct Gamut { const char *name; int g; double xy[4][2]; };
+        const Gamut gamuts[] = {
+            { "Apple Wide Gamut", DRT_IN_APPLE_WG, { {0.725, 0.301}, {0.221, 0.814}, {0.068, -0.076}, {0.3127, 0.3290} } },
+            { "Canon Cinema Gamut", DRT_IN_CANON_CGAMUT, { {0.74, 0.27}, {0.17, 1.14}, {0.08, -0.10}, {0.3127, 0.3290} } },
+            { "Blackmagic Wide Gamut Gen 5", DRT_IN_BMD_WG_GEN5, { {0.7177215, 0.3171181}, {0.2280410, 0.8615690}, {0.1005841, -0.0820452}, {0.3127170, 0.3290312} } },
+            { "DJI D-Gamut", DRT_IN_DJI_DGAMUT, { {0.71, 0.31}, {0.21, 0.88}, {0.09, -0.08}, {0.3127, 0.3290} } },
+        };
+        for (const Gamut &g : gamuts)
+            for (int k = 0; k < 4; ++k) {
+                const drt::float3 xyz = dec3(DRT_OETF_LINEAR, g.g, drt::make_float3(k == 0 || k == 3 ? 1.0f : 0.0f, k == 1 || k == 3 ? 1.0f : 0.0f, k == 2 || k == 3 ? 1.0f : 0.0f));
+                const double sum = double(xyz.x) + xyz.y + xyz.z, x = xyz.x / sum, y = xyz.y / sum;
+                ++n;
+                if (std::fabs(x - g.xy[k][0]) > 2e-5 || std::fabs(y - g.xy[k][1]) > 2e-5 || (k == 3 && std::fabs(xyz.y - 1.0) > 1e-5)) {
+                    std::printf("   %s, %s: x %.6f y %.6f, want %.6f %.6f\n", g.name, k == 0 ? "red" : k == 1 ? "green" : k == 2 ? "blue" : "white", x, y, g.xy[k][0], g.xy[k][1]); good = false; }
+            }
+        std::printf("%-34s cases %9ld  %s\n", "camera encodings (not upstream)", n, good ? "ok" : "FAILED");
+        ok = ok && good;
+    }
+
     /* 10. OpenDRT inverse (not in upstream). Two guarantees, tested separately:
            (a) display round trip: forward(inverse(pixel)) returns the pixel within
                half an 8-bit step for everything the display holds unclipped — this
@@ -373,7 +431,7 @@ int main()
         /* (c) black: code 0 (full-range letterbox) and sub-black through every inverse
                entry must come back as black. PQ code 0 once decoded to -443 nits. */
         long badBlack = 0;
-        for (int e = DRT_OETF_INVERSE_FIRST; e < DRT_OETF_COUNT; ++e)
+        for (int e = DRT_OETF_INVERSE_FIRST; e < DRT_OETF_INVERSE_END; ++e)
             for (float code : {-0.01f, 0.0f}) {
                 drt::DrtSettings s; s.in_gamut = DRT_IN_AP1; s.in_oetf = DRT_OETF_LINEAR; s.look = 0;
                 s.display = drt::kInverseDisplayMap[e - DRT_OETF_INVERSE_FIRST];
@@ -386,7 +444,7 @@ int main()
                 float enc2[3]; drt::apply(fwd, got, enc2);
                 if (std::max(enc2[0], std::max(enc2[1], enc2[2])) > 1.0f / 255.0f) { ++badBlack; std::printf("   black via entry %d code %.2f -> %.4f %.4f %.4f\n", e, code, enc2[0], enc2[1], enc2[2]); }
             }
-        std::printf("%-34s entries %7d  not black %4ld\n", "inverse: black", DRT_OETF_COUNT - DRT_OETF_INVERSE_FIRST, badBlack);
+        std::printf("%-34s entries %7d  not black %4ld\n", "inverse: black", DRT_OETF_INVERSE_COUNT, badBlack);
         ok = ok && badBlack == 0;
     }
 

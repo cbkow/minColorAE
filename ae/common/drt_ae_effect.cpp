@@ -92,7 +92,7 @@ using drtae::dlog;
    and mirror it in the PiPLs' AE_Effect_Version: PF_VERSION(major, minor, 0, DEVELOP, 1). */
 #define DRT_MAJOR_VERSION 0
 #define DRT_MINOR_VERSION 1
-#define DRT_BUG_VERSION   6   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges; 3: the AgX (2026-10-04); 4: the OpenDRT look controls hidden (2026-10-25); 5: the Grade's Zone Values twirl (2026-10-29); 6: the new Grade and its table (2026-11-19). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
+#define DRT_BUG_VERSION   7   /* 1: the Output's View/Render pair removed; 2: the Knee and slider drag ranges; 3: the AgX (2026-10-04); 4: the OpenDRT look controls hidden (2026-10-25); 5: the Grade's Zone Values twirl (2026-10-29); 6: the new Grade and its table (2026-11-19); 7: the camera encodings appended to the Input Gamut, Input Transfer and Working Gamut menus (2026-11-19). PF_VERSION's minor field is 4 bits (15 max); further table changes count here */
 
 extern "C" {
 DllExport PF_Err EffectMain(PF_Cmd cmd, PF_InData *in_data, PF_OutData *out_data,
@@ -108,8 +108,14 @@ const int kWorkingGamutMap[] = { DRT_IN_AP1, DRT_IN_AP0, DRT_IN_REC709, DRT_IN_P
                                  /* the rest of the input gamuts, appended 2026-10-03 so the comp can be in any of
                                     them (parity with the Output's Input Gamut); earlier indices unchanged */
                                  DRT_IN_ARRI_WG3, DRT_IN_ARRI_WG4, DRT_IN_RED_WG, DRT_IN_SONY_SGAMUT3,
-                                 DRT_IN_SONY_SGAMUT3CINE, DRT_IN_PANASONIC_VGAMUT, DRT_IN_XYZ };
+                                 DRT_IN_SONY_SGAMUT3CINE, DRT_IN_PANASONIC_VGAMUT, DRT_IN_XYZ,
+                                 /* the camera gamuts of 2026-11-19, appended the same way */
+                                 DRT_IN_APPLE_WG, DRT_IN_CANON_CGAMUT, DRT_IN_BMD_WG_GEN5, DRT_IN_DJI_DGAMUT };
 const int kWorkingGamutCount = int(sizeof(kWorkingGamutMap) / sizeof(kWorkingGamutMap[0]));
+/* the first sixteen are the values themselves, as they were before the map (saved projects hold the position) */
+const int kOutputOetfMap[DRT_OUTPUT_OETF_COUNT] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                                 DRT_OETF_APPLE_LOG, DRT_OETF_CANON_LOG2, DRT_OETF_CANON_LOG3,
+                                 DRT_OETF_BMD_FILM_GEN5, DRT_OETF_DJI_DLOG };
 
 namespace {
 std::string join(const char *first, const char *const *names, int n, const int *map = nullptr)
@@ -125,11 +131,11 @@ std::string join(const char *first, const char *const *names, int n, const int *
 } // namespace
 
 const char *inGamutPopup()      { static std::string s = join(nullptr, drt::kInGamutNames, DRT_IN_GAMUT_COUNT); return s.c_str(); }
-const char *inOetfPopup(int count)
+const char *inOetfPopup(const int *map)
 {
     static std::string all, part;
-    if (count >= DRT_OETF_COUNT) { if (all.empty()) all = join(nullptr, drt::kInOetfNames, DRT_OETF_COUNT); return all.c_str(); }
-    if (part.empty()) part = join(nullptr, drt::kInOetfNames, count);
+    if (!map) { if (all.empty()) all = join(nullptr, drt::kInOetfNames, DRT_OETF_COUNT); return all.c_str(); }
+    if (part.empty()) part = join(nullptr, drt::kInOetfNames, DRT_OUTPUT_OETF_COUNT, map);
     return part.c_str();
 }
 const char *workingGamutPopup() { static std::string s = join(nullptr, drt::kInGamutNames, kWorkingGamutCount, kWorkingGamutMap); return s.c_str(); }
@@ -166,7 +172,7 @@ const char *popupString(const Row &r)
 {
     if (r.popup) return r.popup;
     if (r.i == &drt::DrtParams::in_gamut) return drtae::inGamutPopup();
-    if (r.i == &drt::DrtParams::in_oetf) return drtae::inOetfPopup(r.choices);
+    if (r.i == &drt::DrtParams::in_oetf) return drtae::inOetfPopup(r.map);
     if (r.i == &drt::DrtParams::working_gamut || r.af == &drt::DrtAgxParams::working_gamut) return drtae::workingGamutPopup();
     return "";
 }
@@ -661,7 +667,7 @@ PF_Err UserChangedParam(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *p
        ceiling has no source above 100 nits. */
     if (row == 1 && changed.kind == drtae::kPopup) {
         const int oetf = choiceToField(changed, int(params[extra->param_index]->u.pd.value));
-        if (oetf >= DRT_OETF_INVERSE_FIRST && oetf < DRT_OETF_COUNT) {
+        if (DRT_OETF_IS_INVERSE(oetf)) {
             const drt::DrtDisplay &disp = drt::kDisplays[drt::kInverseDisplayMap[oetf - DRT_OETF_INVERSE_FIRST]];
             for (int k = 0; k < DRT_ROW_COUNT; ++k) {
                 const Row &r = DRT_ROWS[k];
@@ -786,7 +792,7 @@ PF_Err UpdateParamsUI(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *par
     for (int k = 0; k < DRT_ROW_COUNT; ++k)
         if (DRT_ROWS[k].kind == drtae::kFloat && DRT_ROWS[k].af == &drt::DrtAgxParams::peak) grey = params[paramIndex(k)]->u.fs_d.value <= 100.0;
 #else
-    grey = choiceToField(DRT_ROWS[1], int(params[paramIndex(1)]->u.pd.value)) < DRT_OETF_INVERSE_FIRST;
+    grey = !DRT_OETF_IS_INVERSE(choiceToField(DRT_ROWS[1], int(params[paramIndex(1)]->u.pd.value)));
 #endif
     AEFX_SuiteScoper<PF_ParamUtilsSuite3> pu(in_data, kPFParamUtilsSuite, kPFParamUtilsSuiteVersion3, out_data);
     for (int k = 0; k < DRT_ROW_COUNT; ++k) {

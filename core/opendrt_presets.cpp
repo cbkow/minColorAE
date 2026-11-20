@@ -83,6 +83,7 @@ const char *const kInGamutNames[DRT_IN_GAMUT_COUNT] = {
     "ARRI Wide Gamut 3", "ARRI Wide Gamut 4", "RED Wide Gamut RGB",
     "Sony S-Gamut3", "Sony S-Gamut3.Cine", "Panasonic V-Gamut",
     "Filmlight E-Gamut", "Filmlight E-Gamut2", "DWG",
+    "Apple Wide Gamut", "Canon Cinema Gamut", "Blackmagic Wide Gamut Gen 5", "DJI D-Gamut",
 };
 
 const char *const kInOetfNames[DRT_OETF_COUNT] = {
@@ -91,14 +92,15 @@ const char *const kInOetfNames[DRT_OETF_COUNT] = {
     "Rec.1886 (2.4 power)", "sRGB", "2.2 power", "BT.709 camera", "PQ (100 nits = 1.0)", "HLG 1000 nits",
     "OpenDRT inverse: Rec.1886", "OpenDRT inverse: sRGB Display", "OpenDRT inverse: Display P3",
     "OpenDRT inverse: Rec.2100 PQ", "OpenDRT inverse: Rec.2100 HLG", "OpenDRT inverse: Dolby PQ / P3-D65",
+    "Apple Log", "Canon Log 2", "Canon Log 3", "Blackmagic Film Gen 5", "DJI D-Log",
 };
 
 /* Which display preset each inverse entry undoes (kDisplays index). */
-const int kInverseDisplayMap[DRT_OETF_COUNT - DRT_OETF_INVERSE_FIRST] = { 0, 1, 2, 6, 7, 8 };
+const int kInverseDisplayMap[DRT_OETF_INVERSE_COUNT] = { 0, 1, 2, 6, 7, 8 };
 
 bool drt_inverse_display(DrtParams &p)
 {
-    if (p.in_oetf < DRT_OETF_INVERSE_FIRST || p.in_oetf >= DRT_OETF_COUNT) return false;
+    if (!DRT_OETF_IS_INVERSE(p.in_oetf)) return false;
     /* the encoding is what the file is; the surround is how it was viewed, and that
        stays on the Surround row (the host writes the preset's value there when the
        entry is picked, as the Output's Display preset does) */

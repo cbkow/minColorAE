@@ -7,7 +7,9 @@ it from the file extension.
 <img src="../images/ec_input.png" width="430" alt="minColor Input controls">
 
 - **Input Gamut** and **Input Transfer**: what the file is. Camera spaces (ARRI,
-  RED, Sony, Panasonic, DWG, FilmLight and more, with their log curves), the
+  RED, Sony, Panasonic, DWG, FilmLight and more, with their log curves; since
+  0.1.7 Apple, Canon, Blackmagic and DJI, at the end of each menu - see the
+  table below), the
   linear spaces, and the display encodings deliveries come in: Rec.1886 (2.4
   power), sRGB, 2.2 power, BT.709 camera, PQ and HLG.
 - **Working Gamut**: the comp's working space, ACEScg by default. In an OCIO
@@ -47,3 +49,20 @@ What it guarantees: re-rendering the inverted pixel returns the original within
 one 8-bit step wherever the display was not clipped, and greys and low-saturation
 colours get their exact scene value back. It is iterative: fast on the GPU,
 noticeably slower on the CPU.
+
+## The cameras added in 0.1.7
+
+| Footage | Input Gamut | Input Transfer |
+|---|---|---|
+| Apple Log (iPhone) | Rec.2020 | Apple Log |
+| Apple Log 2 | Apple Wide Gamut | Apple Log |
+| Canon Log 2 | Canon Cinema Gamut | Canon Log 2 |
+| Canon Log 3 | Canon Cinema Gamut | Canon Log 3 |
+| Blackmagic, Gen 5 colour science | Blackmagic Wide Gamut Gen 5 | Blackmagic Film Gen 5 |
+| DJI D-Log | DJI D-Gamut | DJI D-Log |
+
+Apple Log 2 uses Apple Log's curve; only the gamut differs. DJI's D-Log M is
+another encoding and has no entry. A `.mov` or `.mp4` does not say which of
+these it holds, so the panel's starter In rules do not pick them: set them on
+the layer, or, in a project shot on one of these cameras, point that project's
+rule for the extension at it.
