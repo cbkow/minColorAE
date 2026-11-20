@@ -24,7 +24,7 @@ is one undo step.
 
 The puck moves far less than the mouse, on purpose: a long drag is a small,
 controllable push, and the puck stays near the centre for any sane grade. Read
-the numbers under the wheel rather than the puck's position.
+the numbers under the wheel; the puck's position tells you little.
 
 Each wheel row is drawn over ordinary sliders, kept in the twirl under it
 (**Primaries Values**, **HDR Values**, **More Zones**, **Secondary Values**).

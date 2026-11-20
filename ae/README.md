@@ -1,4 +1,4 @@
-# ae/ — the After Effects effects (developer notes)
+# ae/: the After Effects effects (developer notes)
 
 Using the effects: see the [documentation](../docs/README.md). This page is about
 how they are built.
@@ -6,7 +6,7 @@ how they are built.
 ## One source, seven effects
 
 `common/drt_ae_effect.cpp` is compiled once per effect with `-DDRT_ROLE_<NAME>=1`
-(Input, Output, Grade, Grade 2, macOS Fix, Knee, AgX). Per role it picks a parameter table,
+(Input, Output, Grade, Grade 2, macOS Native Fix, Knee, AgX). Per role it picks a parameter table,
 a per-pixel function from `core/` and a kernel name. Each effect declares its own
 input on its popups, transforms whatever pixels reach it, and never asks AE what
 the layer or the project is.

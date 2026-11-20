@@ -22,7 +22,7 @@
 // none. AE stores the config path absolutely, so after moving the project, press
 // it again. Adobe-engine projects (working space None, footage on Preserve RGB)
 // pass pixels through: there the Output encodes for the display and the macOS
-// Fix effect, added by hand on a guide layer, corrects the viewer.
+// Native Fix effect, added by hand on a guide layer, corrects the viewer.
 //
 // ExtendScript groups an unparenthesised nested ?: from the LEFT; always parenthesise.
 //
@@ -55,7 +55,7 @@
      append-only, so stable); the Output's Input Gamut menu is IN_GAMUTS order.
      "Unmanaged" pins mincolor-unmanaged.ocio instead: a pass-through config whose working
      space "minColor Output" is a label; the Output encodes for the display, its
-     macOS display corrects the viewer, and the panel leaves the effects'
+     native-monitor display corrects the viewer on a Mac that needs it, and the panel leaves the effects'
      gamuts alone (gamut null). */
   var WORKING = [
     { ocio: "ACEScg",          gamut: "ACEScg",      working: 1 },
@@ -473,7 +473,7 @@
   }
 
   /* Add Output: an adjustment layer at the top of the active comp carrying minColor
-     Output at its defaults; below a macOS Fix layer if the comp has one (the Fix
+     Output at its defaults; below a macOS Native Fix layer if the comp has one (the Fix
      re-encodes the Output's pixels, so it must stay above). One Output per comp: an
      existing one is reported, not duplicated. */
   function addOutput() {
@@ -504,7 +504,7 @@
       }
       if (fixes.length) l.moveAfter(fixes[fixes.length - 1]);   /* below the lowest Fix layer */
       out.push("Added minColor Output to \"" + comp.name + "\" on layer " + l.index +
-               (fixes.length ? ", under the macOS Fix layer" : ", at the top") +
+               (fixes.length ? ", under the macOS Native Fix layer" : ", at the top") +
                (W ? ", in and out in " + W.ocio + " (linear)." : "."));
     } catch (e) {
       out.push("Add Output failed: " + e.toString());
@@ -540,7 +540,7 @@
     "Sets minColor Input on the selected footage layers from minColor/in.json, by file extension\n" +
     "(adds the effect first in the stack where missing). Shows the changes before applying.");
   var bAdd = button(pLayers, "Add Output",
-    "Adjustment layer with minColor Output at the top of the active comp (under a macOS Fix layer if there is one)");
+    "Adjustment layer with minColor Output at the top of the active comp (under a macOS Native Fix layer if there is one)");
   var report = body.add("statictext", undefined, "", { multiline: true });
   report.preferredSize = [240, 60];
   body.add("statictext", undefined, "minColor " + VERSION);

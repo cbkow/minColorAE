@@ -1122,11 +1122,13 @@ __DEVICE__ float3 drt_input_transform(DRT_PARAMS_ARG p, float3 rgb) {
 }
 
 /* ------------------------------------------------------------ macOS fix */
-/* NOT IN UPSTREAM. The "minColor macOS Fix" effect: the macOS display of
-   ocio/mincolor-unmanaged.ocio as an effect with no settings, for Adobe-engine projects. sRGB Display codes
-   (2.2 power, Rec.709) re-encoded for After Effects' Display P3 viewport on macOS:
-   decode 2.2, Rec.709 -> P3-D65 primaries, encode 2.2. A workaround for how AE shows
-   colour on macOS, not a creative choice; viewer only (put it on a Guide Layer). */
+/* NOT IN UPSTREAM. The "minColor macOS Native Fix" effect ("minColor macOS Fix" until 0.1.7): the
+   native-monitor display of ocio/mincolor-unmanaged.ocio as an effect with no settings, for Adobe-engine
+   projects. sRGB Display codes (2.2 power, Rec.709) re-encoded: decode 2.2, Rec.709 -> P3-D65 primaries,
+   encode 2.2. For one case only: a Mac whose monitor is left in its native mode with the vendor's
+   profile, where After Effects' Display P3 surface shows Rec.709 oversaturated. A monitor in a mode
+   (sRGB, Display P3) with the matching profile needs no fix. Not a creative choice; viewer only (put it
+   on a Guide Layer). */
 __DEVICE__ float3 drt_macos_fix(float3 rgb) {
   rgb = drt_spowf3(drt_clampminf3(rgb, 0.0f), 2.2f);
   rgb = drt_vdot(drt_matrix_xyz_to_p3d65, drt_vdot(drt_matrix_rec709_to_xyz, rgb));

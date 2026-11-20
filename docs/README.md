@@ -37,5 +37,5 @@ minColor AgX at its defaults.*
 | [minColor Grade](effects/grade.md) | Colour correction with Primaries wheels, HDR zone wheels and an HSL secondary. |
 | [minColor Knee](effects/knee.md) | Rolls off highlights brighter than where they are going (HDR into SDR). |
 | [minColor AgX](effects/agx.md) | AgX picture formation, parametric and HDR-capable; Blender-compatible at its defaults. |
-| [minColor macOS Fix](effects/macos-fix.md) | Corrects After Effects' viewer on a Mac when you are not using OCIO. |
+| [minColor macOS Native Fix](effects/macos-fix.md) | Corrects After Effects' viewer on a Mac whose monitor is left in its native mode, when you are not using OCIO. |
 | [minColor Grade (Legacy)](effects/grade-legacy.md) | The first Grade, under *minColor Legacy*: for projects made before 0.1.6. |

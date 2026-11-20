@@ -3,7 +3,7 @@
 AgX picture formation, after Troy Sobotka's AgX, from linear scene light in the
 working space to linear display light in the same space, 1.0 = 100 nits.
 
-**Blender-compatible at its defaults.** At Peak 100 it reproduces Blender's "AgX"
+It is Blender-compatible at its defaults. At Peak 100 it reproduces Blender's "AgX"
 view (median difference 0.05 % against Blender 5.2); at Peak 1000 with Target
 P3-D65, Blender's AgX HDR 1000 view (greys within 0.3 %, colours median 0.6 %).
 Unlike a LUT, every part of it can be adjusted. It is not Blender's AgX and
@@ -19,7 +19,7 @@ ships none of Blender's files.
 *Left un-tone-mapped, right minColor AgX at its defaults.*
 
 Put it on an adjustment layer over the comp's content, under minColor Output and
-any macOS Fix layer. In an OCIO project the viewer and the Output Module encode
+any macOS Native Fix layer. In an OCIO project the viewer and the Output Module encode
 its result as they would any linear light; in an Unmanaged or Adobe-engine
 project, minColor Output encodes it. Work in 32 bpc.
 

@@ -46,7 +46,7 @@
 #define DRT_HAS_KEY      1   /* an HSL secondary: key bars, eyedroppers, key blur */
 #define DRT_KEYED(p, v, m) drt::drt_grade_keyed((p).g, (p).d, (v), (m))
 #elif DRT_ROLE_MACFIX
-#define DRT_EFFECT_NAME  "minColor macOS Fix"
+#define DRT_EFFECT_NAME  "minColor macOS Native Fix"   /* shown name since 0.1.8; the match name below never changes */
 #define DRT_MATCH_NAME   "ski.bialkow minColor macOS Fix"
 #define DRT_KERNEL_NAME  "drt_macfix_kernel"
 #define DRT_ROWS         drtae::kMacFixRows

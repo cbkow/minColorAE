@@ -46,11 +46,14 @@ At the bottom of the Composition panel, choose the display you are looking at:
 
 | You are on | Choose |
 | --- | --- |
-| A Mac | **macOS (AE viewport fix)** |
-| A Mac, checking a Rec.709 video deliverable as a Mac plays it | **macOS Video (AE viewport fix)** |
+| A Mac, monitor left in its native mode (the vendor's profile) | **macOS native monitor (AE viewport fix)** |
+| The same, checking a Rec.709 video deliverable as a Mac plays it | **macOS Video native monitor (AE viewport fix)** |
+| A Mac, monitor in sRGB or Display P3 mode with the matching profile | **sRGB** |
 | Windows, an sRGB monitor | **sRGB** |
 | Windows, a P3 monitor in P3 mode | **Display P3** |
 | A Rec.709 reference monitor | **Rec.709 (BT.1886)** |
+
+Which Mac row applies is explained in [Color setups](color-setups.md#the-mac-viewer-and-when-it-needs-a-fix).
 
 The choice is saved with the project. A freshly set-up project starts at *None*,
 which shows the linear working space as raw numbers (dark and flat); After
@@ -77,4 +80,4 @@ filmic picture, add one of these on an adjustment layer at the top of the comp:
 Add the comp to the Render Queue. In **Output Module Settings > Color**, set
 **Output Color Space** to the delivery: **sRGB**, **Rec.709 BT.1886** or **Display
 P3** for display-referred files, or a linear space (ACEScg, ACES2065-1…) for an
-EXR hand-off. The macOS displays are for the viewer only and never appear there.
+EXR hand-off. The two macOS displays are for the viewer only and never appear there.

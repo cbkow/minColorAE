@@ -189,6 +189,8 @@ drt_ae_effect(mincolor_input  DRT_ROLE_INPUT  "minColor Input"  input  minColor_
 # bundles with one match name)
 drt_ae_effect(mincolor_grade  DRT_ROLE_GRADE  "minColor Grade Legacy"  grade  minColor_Grade_PiPL.r)
 drt_ae_effect(mincolor_grade2 DRT_ROLE_GRADE2 "minColor Grade" grade2 minColor_Grade2_PiPL.r)
+# shown as "minColor macOS Native Fix" since 0.1.8; the bundle keeps its file name, so a copy over an
+# older install replaces it (a renamed file would leave two bundles with one match name)
 drt_ae_effect(mincolor_macfix DRT_ROLE_MACFIX "minColor macOS Fix" macfix minColor_macOS_Fix_PiPL.r)
 drt_ae_effect(mincolor_knee   DRT_ROLE_KNEE   "minColor Knee"   knee   minColor_Knee_PiPL.r)
 drt_ae_effect(mincolor_agx    DRT_ROLE_AGX    "minColor AgX"    agx    minColor_AgX_PiPL.r)

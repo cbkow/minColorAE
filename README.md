@@ -4,7 +4,7 @@ Linear-light colour tools for Adobe After Effects: six effects and a small panel
 that interpret footage into one working space, deliver through OpenColorIO, and
 add a picture formation (AgX) or a highlight knee only when you ask for one.
 
-**[Read the documentation →](docs/README.md)** ·
+**[Read the documentation](docs/README.md)** ·
 [Install](docs/install.md) · [Quick start](docs/quick-start.md)
 
 <p>
@@ -34,12 +34,12 @@ add a picture formation (AgX) or a highlight knee only when you ask for one.
 | **minColor Grade** | Colour correction for linear light: Primaries wheels, HDR zone wheels and an HSL secondary. |
 | **minColor Knee** | A BT.2390 highlight knee for HDR content heading somewhere dimmer. |
 | **minColor AgX** | Parametric, HDR-capable AgX; Blender-compatible at its defaults. |
-| **minColor macOS Fix** | Corrects After Effects' viewer on a Mac when not using OCIO. |
+| **minColor macOS Native Fix** | Corrects After Effects' viewer on a Mac whose monitor is left in its native mode, when not using OCIO. |
 | **minColor panel** | Set OCIO, per-project In rules, Apply In, Add Output. |
 | **OCIO config** | Linear conversions, generated from the same matrices as the effects. |
 
 After Effects 2027 (27.0) on macOS (Metal) and Windows (CUDA), with CPU rendering
-everywhere; made on After Effects 2026 (26.5) until 0.1.5. Version 0.1.7.
+everywhere; made on After Effects 2026 (26.5) until 0.1.5. Version 0.1.8.
 
 ## Credits and licensing
 

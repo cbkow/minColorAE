@@ -14,8 +14,8 @@ you.
   viewer's display and the Output Module encode it.
 - **Unmanaged or Adobe-engine project**: the Output's Display Encoding is the
   delivery's (sRGB, Rec.709, a linear hand-off…). What it writes is what renders.
-  On a Mac, add [minColor macOS Fix](macos-fix.md) on a guide layer to correct the
-  viewer.
+  On a Mac whose monitor is in its native mode, add
+  [minColor macOS Native Fix](macos-fix.md) on a guide layer to correct the viewer.
 
 Scene 1.0 lands at display white (100 nits on PQ and HLG), so a picture that came
 in through minColor Input leaves as itself, and anything brighter than display

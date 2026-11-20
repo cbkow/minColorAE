@@ -74,7 +74,7 @@ and why.
 ### Add Output
 
 Adds an adjustment layer with **minColor Output** at the top of the active comp
-(under a macOS Fix layer, if the comp has one). In an OCIO project it sets the
+(under a macOS Native Fix layer, if the comp has one). In an OCIO project it sets the
 Input Gamut to the working space and the Display Encoding to *None - Linear /
 Working Gamut*, so the Output hands back linear light for the viewer and the
 Output Module to encode. One per comp: an existing one is reported instead.
@@ -83,4 +83,4 @@ Output Module to encode. One per comp: an existing one is reported instead.
 
 Turn on **Preferences > Scripting & Expressions > Allow Scripts to Write Files and
 Access Network**. Apply In and Add Output refuse to run when their effect is not
-installed, rather than adding placeholders that do nothing.
+installed: they would only add placeholders that do nothing.

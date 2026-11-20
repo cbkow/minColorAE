@@ -8,9 +8,18 @@ Pick your display at the bottom of the Composition panel
 pulled out: put EXtractoR (or After Effects' channel extraction) first on the
 layer, then minColor Input.
 
-**Colours look oversaturated on a Mac.** You are viewing without the macOS
-correction: pick **macOS (AE viewport fix)** in an OCIO project, or add **minColor
-macOS Fix** on a guide layer in an Adobe-engine project.
+**Colours look oversaturated on a Mac.** The monitor is in its native mode and
+you are viewing without the correction for it: pick **macOS native monitor (AE viewport fix)**
+in an OCIO project, or add **minColor macOS Native Fix** on a guide layer in an
+Adobe-engine project.
+
+**Colours look dull on a Mac.** The monitor is in a mode (sRGB, Display P3) with
+the matching profile, and a fix is on that it does not need: pick **sRGB** in the
+viewer, or remove the macOS Native Fix layer.
+
+**The viewer went dark and flat after updating to 0.1.8.** The two macOS displays
+were renamed, and a project that used one has its viewer back on *None*. Press
+**Set OCIO** again to write the new config, then pick the display.
 
 **Highlights clip.** Un-tone-mapped is a straight conversion: anything above
 display white clips on screen and in display-referred renders. Add

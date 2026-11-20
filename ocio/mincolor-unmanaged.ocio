@@ -6,13 +6,16 @@ ocio_profile_version: 2
 # minColor UNMANAGED: a pass-through config, not a colour pipeline (the panel's Fix
 # OCIO pins it for "Unmanaged"; until 2026-10-04 it was mincolor-viewport-shim.ocio).
 #
-# Its only job is to fix how AE's viewport shows colour on macOS. It describes
+# Its only job is to correct AE's viewer on a Mac whose monitor is left in its native
+# mode with the vendor's profile (a monitor in sRGB or Display P3 mode with the
+# matching profile needs no correction). It describes
 # nothing about the scene: the working
 # space is a label, every role points at it, and AE is assumed to pass pixels through
 # untouched. All real colour is done by the minColor effects.
 #
 # Contract: the minColor Output's Display Encoding is "sRGB Display - 2.2 Power / Rec.709".
-#   macOS (AE viewport fix): those codes re-encoded for AE's Display P3 viewport
+#   macOS native monitor (AE viewport fix):
+#                            those codes re-encoded for that case
 #                            (decode 2.2, Rec.709 -> P3-D65 primaries, encode 2.2);
 #                            the same thing a studio's P3 2.2 house display does to a 709 picture.
 #   Windows (passthrough):   the codes go to the screen as they are.
@@ -36,12 +39,12 @@ roles:
   data: Raw
 
 displays:
-  macOS (AE viewport fix):
+  macOS native monitor (AE viewport fix):
     - !<View> {name: minColor, colorspace: macOS viewport}
   Windows (passthrough):
     - !<View> {name: minColor, colorspace: Raw}
 
-active_displays: [macOS (AE viewport fix), Windows (passthrough)]
+active_displays: [macOS native monitor (AE viewport fix), Windows (passthrough)]
 active_views: [minColor]
 # the views still use these; hidden so "minColor Output" is the only working space AE offers
 inactive_colorspaces: [Raw, macOS viewport]
@@ -65,7 +68,7 @@ colorspaces:
     name: macOS viewport
     family: ""
     bitdepth: 32f
-    description: sRGB Display (2.2 Rec.709) codes re-encoded for AE's Display P3 viewport on macOS.
+    description: sRGB Display (2.2 Rec.709) codes re-encoded for After Effects on a Mac whose monitor is in its native mode.
     isdata: false
     from_scene_reference: !<GroupTransform>
       children:

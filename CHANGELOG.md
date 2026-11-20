@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.1.8 (2026-11-20)
+
+Names and documentation only. No picture changes.
+
+- **The Mac viewer fix is for one case, and is now named for it.** After Effects
+  shows Rec.709 oversaturated on a Mac only when the monitor is left in its
+  native mode with the vendor's profile. A monitor in a mode (sRGB, Display P3)
+  with the matching profile is correct and needs no fix. The names and the
+  documentation said every Mac needed one.
+
+  | Until 0.1.7 | Now |
+  |---|---|
+  | macOS (AE viewport fix) | macOS native monitor (AE viewport fix) |
+  | macOS Video (AE viewport fix) | macOS Video native monitor (AE viewport fix) |
+  | minColor macOS Fix | minColor macOS Native Fix |
+
+- A project stores its viewer's display by name. After **Set OCIO** writes the
+  new config, a project that used one of the two displays has its viewer on
+  *None*: pick the display again. Until Set OCIO is pressed, a project keeps the
+  config it has, with the old names.
+- The effect keeps its internal name and its file name: projects and presets
+  that use it open unchanged, and the new files copy over the old ones.
+- Apple's XDR displays are not covered by the fix or its documentation.
+- The screenshots of the viewer's display menu and of the effect still show the
+  old names.
+
 ## 0.1.7 (2026-11-19)
 
 - **More cameras in the Input.** Five encodings and four gamuts join the Input
