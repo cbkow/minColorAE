@@ -1,48 +1,76 @@
 # minColorAE
 
 Colour tools for Adobe After Effects that work in linear light: seven effects and
-a panel. minColor Input says what each file is and converts it to the comp's
-working space. You composite and grade there. minColor Output encodes the result
-for a display or a delivery. A highlight knee and AgX are separate effects, used
-only when you add them.
-
-**[Read the documentation](docs/README.md)** ·
-[Install](docs/install.md) · [Quick start](docs/quick-start.md)
+a panel. After Effects 2027 on macOS (Metal) and Windows (CUDA), CPU everywhere
+else. Version 0.1.8.
 
 <p>
-<img src="docs/images/view_raw.jpg" width="49%" alt="Un-tone-mapped">
-<img src="docs/images/view_agx.jpg" width="49%" alt="minColor AgX">
+<img src="docs/images/view_raw.jpg" width="49%" alt="A linear render shown as it is">
+<img src="docs/images/view_agx.jpg" width="49%" alt="The same frame through minColor AgX">
 </p>
 
-*One frame of the proof footage (a Blender render in linear ACEScg, highlights to
-55× diffuse white, spectral lasers outside ACEScg): un-tone-mapped, and through
-[minColor AgX](docs/effects/agx.md).*
+*One frame as a plain conversion, and through minColor AgX.*
 
-<p>
-<img src="docs/images/panel.png" height="300" alt="The minColor panel">
-<img src="docs/images/ec_input.png" height="300" alt="minColor Input">
-<img src="docs/images/ec_agx.png" height="300" alt="minColor AgX">
-<img src="docs/images/ec_grade.png" height="300" alt="minColor Grade">
-</p>
+## Install
 
-*The panel, and minColor Input, AgX and Grade in Effect Controls.*
+Download the zip for your system from
+[Releases](https://github.com/cbkow/minColorAE/releases), quit After Effects, and
+copy its three parts:
 
-## What's in it
+| Part | macOS | Windows |
+| --- | --- | --- |
+| Effects | `/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/minColor/` | `C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore\minColor\` |
+| Panel | `~/Library/Preferences/Adobe/After Effects/27.0/Scripts/ScriptUI Panels/` | `%APPDATA%\Adobe\After Effects\27.0\Scripts\ScriptUI Panels\` |
+| Presets | `~/Documents/Adobe/After Effects 2027/User Presets/minColor/` | `Documents\Adobe\After Effects 2027\User Presets\minColor\` |
+
+Start After Effects and turn on **Preferences > Scripting & Expressions > Allow
+Scripts to Write Files and Access Network**. The panel is **Window >
+minColor.jsx**; the effects are under **Effect > minColor**.
+
+Updating from 0.1.5 or earlier: remove the old `minColor` effects folder first.
+
+## Use
+
+<img src="docs/images/panel.png" width="240" alt="The minColor panel">
+
+1. **Save the project.** The panel keeps its files in a `minColor` folder next
+   to it.
+2. **Press Set OCIO** and pick a working space. ACEScg is the usual one. The
+   panel sets 32 bpc and reopens the project.
+3. **Select your footage layers and press Apply In.** Each gets minColor Input,
+   set from its file type. Check the Input on anything unusual. On a multilayer
+   EXR, extract the beauty layer first.
+4. **Pick your display** at the bottom of the Composition panel:
+
+   | You are on | Choose |
+   | --- | --- |
+   | A Mac, monitor left in its native mode | **macOS native monitor (AE viewport fix)** |
+   | A Mac, monitor in sRGB or Display P3 mode | **sRGB** |
+   | Windows, an sRGB monitor | **sRGB** |
+   | Windows, a P3 monitor in P3 mode | **Display P3** |
+   | A Rec.709 reference monitor | **Rec.709 (BT.1886)** |
+
+5. **Grade, and shape the highlights if you want to**, with minColor Grade,
+   minColor Knee or minColor AgX on adjustment layers.
+6. **Use minColor Output to render.** Add Output puts it at the top of the comp.
+
+Work in 32 bpc. Linear light above 1.0 clips at 8 and 16 bpc.
+
+## The effects
 
 | | |
 | --- | --- |
-| **minColor Input** | What a file is (camera logs, display encodings, linear), into the comp's working space. |
-| **minColor Output** | Encodes for a display or a delivery: a gamut matrix and a curve, no tonescale. |
-| **minColor Grade** | Colour correction for linear light: Primaries wheels, HDR zone wheels and an HSL secondary. |
-| **minColor Knee** | A BT.2390 highlight knee for HDR content heading somewhere dimmer. |
-| **minColor AgX** | Parametric, HDR-capable AgX; Blender-compatible at its defaults. |
-| **minColor macOS Native Fix** | Corrects After Effects' viewer on a Mac whose monitor is left in its native mode, when not using OCIO. |
-| **minColor Grade (Legacy)** | The first Grade, kept so projects made before 0.1.6 open and render as they did. |
-| **minColor panel** | Sets the project up (Set OCIO), puts Input on footage (Apply In, In Rules) and adds the Output. |
-| **OCIO config** | Written next to the project by Set OCIO, for After Effects' OCIO mode. Generated from the same matrices as the effects. |
+| [minColor Input](docs/reference.md#mincolor-input) | Says what a file is and converts it to the working space. |
+| [minColor Output](docs/reference.md#mincolor-output) | Encodes for a display or a delivery. |
+| [minColor Grade](docs/reference.md#mincolor-grade) | Primaries wheels, HDR zone wheels and an HSL secondary. |
+| [minColor Knee](docs/reference.md#mincolor-knee) | Rolls off highlights that are brighter than the target. |
+| [minColor AgX](docs/reference.md#mincolor-agx) | AgX picture formation, adjustable; matches Blender's at its defaults. |
+| [minColor macOS Native Fix](docs/reference.md#mincolor-macos-native-fix) | Corrects the viewer on a Mac whose monitor is in its native mode. |
+| [minColor Grade (Legacy)](docs/reference.md#mincolor-grade-legacy) | The first Grade, for projects made before 0.1.6. |
 
-After Effects 2027 (27.0) on macOS (Metal) and Windows (CUDA), with CPU rendering
-everywhere; made on After Effects 2026 (26.5) until 0.1.5. Version 0.1.8.
+Controls, the panel's buttons, presets and troubleshooting are in the
+[reference](docs/reference.md). Changes by version are in the
+[changelog](CHANGELOG.md). To build from source, see [BUILDING.md](BUILDING.md).
 
 ## Credits and licensing
 
@@ -66,60 +94,3 @@ and [PROVENANCE.md](PROVENANCE.md):
 minColorAE is not affiliated with or endorsed by OpenDRT, darktable, Blender,
 Adobe or the Academy (ACES). After Effects is a trademark of Adobe. The Adobe
 After Effects SDK is proprietary and is not part of this repository.
-
-## Build
-
-Needs Adobe's After Effects SDK (proprietary, obtained separately, never in this
-repository): pass its path, or link it at `private/sdk/AfterEffectsSDK` (a symlink on
-macOS, a directory junction on Windows: `mklink /J`).
-
-```
-cmake -S . -B build -DMINCOLOR_AE_SDK=/path/to/AfterEffectsSDK
-cmake --build build
-ctest --test-dir build --output-on-failure
-cmake --build build --target install_ae
-cmake --build build --target install_panel
-cmake --build build --target install_presets
-```
-
-The plug-ins install to
-`/Library/Application Support/Adobe/Common/Plug-ins/7.0/MediaCore/minColor/`, the
-panel to `~/Library/Preferences/Adobe/After Effects/27.0/Scripts/ScriptUI Panels/`
-(Window > minColor.jsx, dockable; AE reads that folder at launch), and the
-animation presets to `~/Documents/Adobe/After Effects 2027/User Presets/minColor/`
-(the folders of After Effects 2027; set `MINCOLOR_PANEL_DIR` / `MINCOLOR_PRESETS_DIR`
-for another version).
-
-**Windows.** Visual Studio (2026 tested; its CMake and Ninja are used) and, for
-the GPU path, the CUDA toolkit (13.5 tested; only the compiler and runtime
-libraries are needed, not Nsight or the Visual Studio integration). Without the
-toolkit the effects build CPU-only. From an *x64 Native Tools* prompt (or after
-`vcvars64.bat`), elevated for `install_ae`:
-
-```
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-ctest --test-dir build --output-on-failure
-cmake --build build --target install_ae install_panel install_presets
-```
-
-The effects (`.aex`) install to `C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore\minColor\`,
-the panel to `%APPDATA%\Adobe\After Effects\27.0\Scripts\ScriptUI Panels\`, and the
-presets to `Documents\Adobe\After Effects 2027\User Presets\minColor\`. The CUDA kernels
-are built for Turing and newer (PTX 7.5, SASS for Ampere, Ada and Blackwell). AE uses
-them when the project's renderer is *Mercury GPU Acceleration (CUDA)*; under any other
-renderer the effects render on the CPU, with the same results.
-
-## Repository
-
-```
-core/       the colour maths, dialect-neutral (C++, Metal, CUDA)
-ae/         the After Effects effects (one source, compiled per effect)
-panel/      the ScriptUI panel
-ocio/       mincolor.ocio (generated by tools/make_ocio) and mincolor-unmanaged.ocio
-presets/    animation presets and the presets JSON
-proof/      the Blender proof scene (scripted)
-tools/      tests: the core against the upstream DCTL, the GPU kernels against the CPU
-docs/       the user documentation
-upstream/   OpenDRT v1.1.0, unmodified
-```

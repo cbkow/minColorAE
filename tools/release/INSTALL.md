@@ -16,8 +16,8 @@ Then start After Effects: the effects are under **Effect > minColor**, the panel
 Animation Presets > minColor**. Turn on **Preferences > Scripting & Expressions >
 Allow Scripts to Write Files and Access Network** for the panel.
 
-Next: the [quick start](https://github.com/cbkow/minColorAE/blob/main/docs/quick-start.md)
-and the [documentation](https://github.com/cbkow/minColorAE/tree/main/docs).
+Next: [how to use it](https://github.com/cbkow/minColorAE#use) and the
+[reference](https://github.com/cbkow/minColorAE/blob/main/docs/reference.md).
 
 minColorAE is free software under the GPL-3.0 (LICENSE); credits in NOTICE. Source:
 https://github.com/cbkow/minColorAE (tag v@VERSION@).

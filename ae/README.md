@@ -1,6 +1,6 @@
 # ae/: the After Effects effects (developer notes)
 
-Using the effects: see the [documentation](../docs/README.md). This page is about
+Using the effects: see the [README](../README.md#use) and the [reference](../docs/reference.md). This page is about
 how they are built.
 
 ## One source, seven effects
@@ -61,7 +61,7 @@ force the CPU path.
 
 ## Build
 
-From the repository root (see the top-level [README](../README.md#build)):
+From the repository root (see the top-level [README](../BUILDING.md)):
 
 ```
 cmake -S . -B build -DMINCOLOR_AE_SDK=/path/to/AfterEffectsSDK
